@@ -237,7 +237,7 @@ const RestaurantPage = ({ menuName, weather, location, onBack }) => {
     <div className="min-h-screen px-4 py-8">
       {/* 상단 날씨 정보 */}
       {weather && (
-        <div className="absolute top-4 right-4 glass rounded-xl shadow-lg p-4">
+        <div className="absolute top-4 left-4 glass rounded-xl shadow-lg p-4 z-10">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl bg-yellow-300/80 flex items-center justify-center">
               <span className="text-xl">
@@ -250,7 +250,7 @@ const RestaurantPage = ({ menuName, weather, location, onBack }) => {
             </div>
             <div>
               <div className="text-[13px] text-slate-500">현재 위치</div>
-              <div className="font-semibold text-sm">{location || weather.location || '서울시'}</div>
+              <div className="font-semibold">{location || weather.location}</div>
             </div>
           </div>
           <div className="chip rounded-xl px-3 py-1.5 text-sm font-medium text-slate-700 mt-2">

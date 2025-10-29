@@ -49,5 +49,16 @@ export const cafeteriaAPI = {
   },
 };
 
+export const dailyRecommendationsAPI = {
+  getDailyRecommendations: async (location, coords = null) => {
+    let url = `/api/daily-recommendations?location=${encodeURIComponent(location)}`;
+    if (coords && coords.latitude && coords.longitude) {
+      url += `&lat=${coords.latitude}&lng=${coords.longitude}`;
+    }
+    const response = await api.get(url);
+    return response.data;
+  },
+};
+
 export default api;
 

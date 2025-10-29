@@ -43,7 +43,7 @@ const RouletteGame = ({ menus, weather, location, onResult, onBack }) => {
     <div className="min-h-screen py-8 px-4">
       {/* 상단 날씨 정보 */}
       {weather && (
-        <div className="absolute top-4 right-4 glass rounded-xl shadow-lg p-4">
+        <div className="absolute top-4 left-4 glass rounded-xl shadow-lg p-4 z-10">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl bg-yellow-300/80 flex items-center justify-center">
               <span className="text-xl">
