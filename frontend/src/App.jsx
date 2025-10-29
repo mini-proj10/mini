@@ -5,6 +5,7 @@ import CafeteriaResult from './components/CafeteriaResult';
 import RouletteGame from './components/RouletteGame';
 import RestaurantPage from './components/RestaurantPage';
 import DailyRecommendations from './components/DailyRecommendations';
+import AlertBanner from './components/AlertBanner';
 import { weatherAPI, cafeteriaAPI } from './services/api';
 
 function App() {
@@ -19,6 +20,9 @@ function App() {
   const [error, setError] = useState(null);
   const [locationPermission, setLocationPermission] = useState('pending'); // pending, granted, denied
   const [backgroundPhoto, setBackgroundPhoto] = useState(null);
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertDesc, setAlertDesc] = useState('');
 
   // 초기 테마 설정
   useEffect(() => {
@@ -217,6 +221,18 @@ function App() {
         userCoords
       );
       
+      // 검증 실패 응답 처리
+      if (response.data.need_more_info && response.data.missing) {
+        const missing = response.data.missing[0] || '';
+        if (missing.includes('valid_food_name')) {
+          setAlertTitle('메뉴 인식 불가');
+          setAlertDesc(response.data.brief_rationale || '입력하신 단어가 음식명으로 인식되지 않았습니다. 예: 김치찌개, 파스타, 초밥처럼 실제 음식명을 입력해주세요.');
+          setAlertOpen(true);
+          setLoading(false);
+          return;
+        }
+      }
+      
       setRecommendation(response.data);
       setCurrentPage('result');
     } catch (err) {
@@ -351,6 +367,14 @@ function App() {
 
   return (
     <div className="min-h-screen">
+      {/* Alert Banner */}
+      <AlertBanner
+        open={alertOpen}
+        title={alertTitle}
+        desc={alertDesc}
+        onClose={() => setAlertOpen(false)}
+      />
+
       {/* 에러 메시지 */}
       {error && (
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 glass border border-red-200 text-red-800 px-6 py-3 rounded-lg shadow-lg z-50">
@@ -367,6 +391,11 @@ function App() {
           {currentPage === 'input' && (
             <CafeteriaInput
               onSubmit={handleMenuInput}
+              onValidationError={(title, desc) => {
+                setAlertTitle(title);
+                setAlertDesc(desc);
+                setAlertOpen(true);
+              }}
               weather={weather}
               location={location}
             />
