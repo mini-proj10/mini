@@ -94,7 +94,7 @@ function App() {
   // 카카오 API로 좌표를 주소로 변환
   const getAddressFromCoords = async (latitude, longitude) => {
     try {
-      const KAKAO_API_KEY = '97530b44b3984f6777b7a8897d33e173'; // 기본 키 (사용자가 교체 가능)
+      const KAKAO_API_KEY = 'ef42433f3c101ffeb3d1bae45a775180'; // 기본 키 (사용자가 교체 가능)
       const response = await fetch(
         `https://dapi.kakao.com/v2/local/geo/coord2address.json?x=${longitude}&y=${latitude}`,
         {
@@ -114,13 +114,15 @@ function App() {
           
           // 우선순위: 도로명 주소 > 지번 주소
           if (roadAddress) {
-            // 예: 서울특별시 강남구 테헤란로
-            const region = `${roadAddress.region_1depth_name} ${roadAddress.region_2depth_name}`;
-            return region.replace('특별시', '시').replace('광역시', '시');
+            // 예: 서울특별시 강남구
+            const city = roadAddress.region_1depth_name.replace('특별시', '시').replace('광역시', '시');
+            const district = roadAddress.region_2depth_name;
+            return district ? `${city} ${district}` : city;
           } else if (address) {
-            // 예: 서울특별시 강남구 역삼동
-            const region = `${address.region_1depth_name} ${address.region_2depth_name}`;
-            return region.replace('특별시', '시').replace('광역시', '시');
+            // 예: 서울특별시 강남구
+            const city = address.region_1depth_name.replace('특별시', '시').replace('광역시', '시');
+            const district = address.region_2depth_name;
+            return district ? `${city} ${district}` : city;
           }
         }
       }
