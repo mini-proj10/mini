@@ -65,26 +65,37 @@ function App() {
 
   const fetchBackgroundPhoto = async (weatherCondition, temperature) => {
     try {
-      console.log('📸 배경 사진 요청:', weatherCondition, temperature);
-      const response = await fetch(
-        `http://localhost:8000/api/weather-photo?weather_condition=${encodeURIComponent(weatherCondition)}&temperature=${temperature || ''}`
-      );
-      const data = await response.json();
+      console.log('📸 배경 이미지 설정:', weatherCondition, temperature);
       
-      if (data.success && data.data.success && data.data.photo_url) {
-        console.log('✅ 배경 사진 가져오기 성공');
-        setBackgroundPhoto(data.data.photo_url);
-        document.body.style.backgroundImage = `url(${data.data.photo_url})`;
-        document.body.style.backgroundSize = 'cover';
-        document.body.style.backgroundPosition = 'center';
-        document.body.style.backgroundRepeat = 'no-repeat';
-        document.body.style.backgroundAttachment = 'fixed';
-      } else {
-        console.log('⚠️ 배경 사진 없음, 테마 그라데이션 사용');
-        document.body.style.backgroundImage = 'none';
+      // 날씨 조건에 따른 로컬 이미지 선택
+      let imageName = 'sunny.png'; // 기본값
+      
+      const condition = (weatherCondition || '').toLowerCase();
+      if (condition.includes('맑')) {
+        const sunnyImages = ['sunny.png', 'sunny2.jpg', 'sunny3.png'];
+        imageName = sunnyImages[Math.floor(Math.random() * sunnyImages.length)];
+      } else if (condition.includes('구름') || condition.includes('흐림')) {
+        const cloudyImages = ['cloudy.png', 'cloudy2.jpg', 'cloudy3.png'];
+        imageName = cloudyImages[Math.floor(Math.random() * cloudyImages.length)];
+      } else if (condition.includes('비')) {
+        const rainyImages = ['rainy.png', 'rainy2.jpg', 'rainy3.png'];
+        imageName = rainyImages[Math.floor(Math.random() * rainyImages.length)];
+      } else if (condition.includes('눈')) {
+        const snowyImages = ['snowy.png', 'snowy2.jpg', 'snowy3.png'];
+        imageName = snowyImages[Math.floor(Math.random() * snowyImages.length)];
       }
+      
+      const imageUrl = `/images/weather/${imageName}`;
+      console.log('✅ 배경 이미지 적용:', imageUrl);
+      
+      setBackgroundPhoto(imageUrl);
+      document.body.style.backgroundImage = `url(${imageUrl})`;
+      document.body.style.backgroundSize = 'cover';
+      document.body.style.backgroundPosition = 'center';
+      document.body.style.backgroundRepeat = 'no-repeat';
+      document.body.style.backgroundAttachment = 'fixed';
     } catch (error) {
-      console.error('❌ 배경 사진 가져오기 실패:', error);
+      console.error('❌ 배경 이미지 설정 실패:', error);
       document.body.style.backgroundImage = 'none';
     }
   };
