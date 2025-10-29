@@ -83,6 +83,45 @@ function App() {
     }
   };
 
+  // 🆕 좌표를 주소로 변환하는 함수
+  const getAddressFromCoords = (lat, lng) => {
+    return new Promise((resolve, reject) => {
+      // 카카오 API 로드 대기
+      if (!window.kakao || !window.kakao.maps || !window.kakao.maps.services) {
+        console.warn('⏳ 카카오맵 API 로딩 대기 중...');
+        // 500ms 후 재시도
+        setTimeout(() => {
+          if (!window.kakao || !window.kakao.maps || !window.kakao.maps.services) {
+            reject(new Error('카카오맵 API가 로드되지 않았습니다'));
+          } else {
+            getAddressFromCoords(lat, lng).then(resolve).catch(reject);
+          }
+        }, 500);
+        return;
+      }
+
+      const geocoder = new window.kakao.maps.services.Geocoder();
+      
+      geocoder.coord2Address(lng, lat, (result, status) => {
+        if (status === window.kakao.maps.services.Status.OK) {
+          if (result[0].address) {
+            const addr = result[0].address;
+            // 시/도 + 구/군 조합 (예: "서울 강남구", "경기도 성남시")
+            const location = addr.region_2depth_name 
+              ? `${addr.region_1depth_name} ${addr.region_2depth_name}`
+              : addr.region_1depth_name;
+            console.log('✅ 역지오코딩 성공:', location, addr);
+            resolve(location);
+          } else {
+            reject(new Error('주소 정보 없음'));
+          }
+        } else {
+          reject(new Error('역지오코딩 실패'));
+        }
+      });
+    });
+  };
+
   // 시작하기 버튼 클릭
   const handleStart = async () => {
     setCurrentPage('location');
@@ -104,8 +143,20 @@ function App() {
           setUserCoords(coords);
           setLocationPermission('granted');
           
-          setLocation('서울');
-          await fetchWeather('서울');
+          console.log('📍 GPS 좌표:', coords);
+          
+          // 🆕 좌표를 주소로 변환
+          try {
+            const address = await getAddressFromCoords(coords.latitude, coords.longitude);
+            console.log('📍 변환된 주소:', address);
+            setLocation(address);
+            await fetchWeather(address);
+          } catch (error) {
+            console.error('❌ 주소 변환 실패, 기본값(서울) 사용:', error);
+            setLocation('서울');
+            await fetchWeather('서울');
+          }
+          
           setCurrentPage('input');
         },
         async (error) => {
@@ -332,7 +383,7 @@ function App() {
           menuName={selectedMenu}
           weather={weather}
           location={location}
-          onBack={handleBack}
+          onBack={handleBackToResult}
         />
       )}
     </div>
