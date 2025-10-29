@@ -775,4 +775,171 @@ class AIService:
             "alternatives": ["불고기", "갈비탕"],
             "weather_info": weather
         }
+    
+    async def get_daily_recommendations(self, weather: Dict, location: str) -> Dict:
+        """오늘의 추천 메뉴 3개 생성 (위치 & 날씨 기반)"""
+        
+        if not self.use_ai:
+            # AI 미사용 시 폴백
+            return self._get_fallback_daily_recommendations(weather, location)
+        
+        try:
+            # 오늘의 추천 메뉴용 별도 모델 (시스템 인스트럭션 없음)
+            daily_model = genai.GenerativeModel('gemini-2.0-flash-exp')
+            
+            # 프롬프트 생성
+            prompt = f"""
+오늘의 점심 메뉴 3가지를 추천해주세요.
+
+**위치:** {location}
+**날씨 정보:**
+- 온도: {weather.get('temperature')}°C
+- 날씨: {weather.get('sky_condition')}
+- 강수량: {weather.get('precipitation', 0)}mm
+- 습도: {weather.get('humidity')}%
+
+**요구사항:**
+1. 현재 날씨와 온도에 최적화된 메뉴 3개를 추천하세요.
+2. 각 메뉴는 서로 다른 카테고리(한식, 중식, 양식, 일식 등)에서 선택하세요.
+3. 각 추천마다 1-2문장으로 이유를 설명하세요 (날씨, 영양, 맛 고려).
+4. 대략적인 가격대도 함께 제시하세요.
+
+**출력 형식 (JSON만):**
+{{
+  "recommendations": [
+    {{
+      "menu_name": "메뉴명",
+      "category": "카테고리",
+      "price_range": "가격대",
+      "reason": "추천 이유 (1-2문장)"
+    }},
+    {{
+      "menu_name": "메뉴명",
+      "category": "카테고리", 
+      "price_range": "가격대",
+      "reason": "추천 이유 (1-2문장)"
+    }},
+    {{
+      "menu_name": "메뉴명",
+      "category": "카테고리",
+      "price_range": "가격대",
+      "reason": "추천 이유 (1-2문장)"
+    }}
+  ],
+  "summary": "오늘의 날씨 한줄 요약"
+}}
+
+**주의:** 유효한 JSON만 출력하세요. 코드블록, 추가 텍스트, 이모지 금지.
+"""
+            
+            # Gemini API 호출
+            response = daily_model.generate_content(prompt)
+            response_text = response.text.strip()
+            
+            # JSON 파싱
+            # 코드블록 제거
+            if '```json' in response_text:
+                response_text = response_text.split('```json')[1].split('```')[0].strip()
+            elif '```' in response_text:
+                response_text = response_text.split('```')[1].split('```')[0].strip()
+            
+            result = json.loads(response_text)
+            
+            # 날씨 정보 추가
+            result['weather'] = {
+                'location': location,
+                'temperature': weather.get('temperature'),
+                'condition': weather.get('sky_condition'),
+                'precipitation': weather.get('precipitation', 0)
+            }
+            
+            print(f"✅ 오늘의 추천 메뉴 생성 완료: {len(result.get('recommendations', []))}개")
+            return result
+            
+        except Exception as e:
+            print(f"❌ 오늘의 추천 메뉴 생성 오류: {e}")
+            return self._get_fallback_daily_recommendations(weather, location)
+    
+    def _get_fallback_daily_recommendations(self, weather: Dict, location: str) -> Dict:
+        """AI 오류 시 폴백 오늘의 추천 메뉴"""
+        temp = weather.get("temperature", 20)
+        condition = weather.get("sky_condition", "맑음")
+        
+        recommendations = []
+        
+        # 온도 기반 추천
+        if temp < 10:
+            recommendations = [
+                {
+                    "menu_name": "김치찌개",
+                    "category": "한식",
+                    "price_range": "8,000-10,000원",
+                    "reason": f"추운 날씨({temp}°C)에 따뜻한 국물 요리로 몸을 녹이기 좋습니다."
+                },
+                {
+                    "menu_name": "우동",
+                    "category": "일식",
+                    "price_range": "7,000-9,000원",
+                    "reason": "부드러운 면발과 따뜻한 국물이 추위를 녹여줍니다."
+                },
+                {
+                    "menu_name": "샤브샤브",
+                    "category": "중식",
+                    "price_range": "12,000-15,000원",
+                    "reason": "뜨거운 육수에 신선한 야채와 고기를 즐길 수 있습니다."
+                }
+            ]
+        elif temp < 20:
+            recommendations = [
+                {
+                    "menu_name": "비빔밥",
+                    "category": "한식",
+                    "price_range": "8,000-10,000원",
+                    "reason": "적당한 날씨에 영양 균형 잡힌 한 그릇 식사가 제격입니다."
+                },
+                {
+                    "menu_name": "돈카츠",
+                    "category": "일식",
+                    "price_range": "9,000-12,000원",
+                    "reason": "바삭한 튀김옷과 부드러운 고기가 점심 식사로 딱 좋습니다."
+                },
+                {
+                    "menu_name": "파스타",
+                    "category": "양식",
+                    "price_range": "11,000-14,000원",
+                    "reason": "풍미 있는 소스와 쫄깃한 면이 활력을 줍니다."
+                }
+            ]
+        else:
+            recommendations = [
+                {
+                    "menu_name": "냉면",
+                    "category": "한식",
+                    "price_range": "9,000-12,000원",
+                    "reason": f"더운 날씨({temp}°C)에 시원한 면 요리로 입맛을 돋우기 좋습니다."
+                },
+                {
+                    "menu_name": "초밥",
+                    "category": "일식",
+                    "price_range": "12,000-18,000원",
+                    "reason": "신선한 생선과 깔끔한 맛이 여름철 식사로 적합합니다."
+                },
+                {
+                    "menu_name": "샐러드",
+                    "category": "양식",
+                    "price_range": "10,000-13,000원",
+                    "reason": "가볍고 신선한 재료로 더위에도 부담 없이 즐길 수 있습니다."
+                }
+            ]
+        
+        return {
+            "recommendations": recommendations,
+            "summary": f"{location} {condition}, {temp}°C - 오늘 날씨에 맞는 메뉴를 준비했습니다.",
+            "weather": {
+                "location": location,
+                "temperature": temp,
+                "condition": condition,
+                "precipitation": weather.get("precipitation", 0)
+            }
+        }
 

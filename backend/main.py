@@ -169,6 +169,23 @@ async def get_weather_photo(weather_condition: str, temperature: Optional[float]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/daily-recommendations")
+async def get_daily_recommendations(location: str = "서울", lat: Optional[float] = None, lng: Optional[float] = None):
+    """오늘의 추천 메뉴 3개 조회 (위치 & 날씨 기반)"""
+    try:
+        # 1. 날씨 정보 가져오기 (좌표 우선)
+        weather_data = await weather_service.get_weather(location, lat, lng)
+        
+        # 2. AI 오늘의 추천 메뉴 생성
+        recommendations = await ai_service.get_daily_recommendations(weather_data, location)
+        
+        return {
+            "success": True,
+            "data": recommendations
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/health")
 async def health_check():
     """헬스 체크"""

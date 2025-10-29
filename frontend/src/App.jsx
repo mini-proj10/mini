@@ -4,6 +4,7 @@ import CafeteriaInput from './components/CafeteriaInput';
 import CafeteriaResult from './components/CafeteriaResult';
 import RouletteGame from './components/RouletteGame';
 import RestaurantPage from './components/RestaurantPage';
+import DailyRecommendations from './components/DailyRecommendations';
 import { weatherAPI, cafeteriaAPI } from './services/api';
 
 function App() {
@@ -358,45 +359,61 @@ function App() {
         </div>
       )}
 
-      {/* 페이지 라우팅 */}
-      {currentPage === 'input' && (
-        <CafeteriaInput
-          onSubmit={handleMenuInput}
-          weather={weather}
-          location={location}
-        />
-      )}
+      {/* 메인 레이아웃: 페이지 + 사이드바 */}
+      <div className="flex flex-col lg:flex-row gap-6 p-4 lg:p-6 max-w-[1000px] mx-auto items-start justify-center">
+        {/* 메인 콘텐츠 영역 */}
+        <div className="w-full lg:w-[1150px] flex-shrink-0">
+          {/* 페이지 라우팅 */}
+          {currentPage === 'input' && (
+            <CafeteriaInput
+              onSubmit={handleMenuInput}
+              weather={weather}
+              location={location}
+            />
+          )}
 
-      {currentPage === 'result' && (
-        <CafeteriaResult
-          recommendation={recommendation}
-          weather={weather}
-          location={location}
-          onSelectMenu={handleSelectMenu}
-          onShowRoulette={handleShowRoulette}
-          onBack={handleBack}
-        />
-      )}
+          {currentPage === 'result' && (
+            <CafeteriaResult
+              recommendation={recommendation}
+              weather={weather}
+              location={location}
+              onSelectMenu={handleSelectMenu}
+              onShowRoulette={handleShowRoulette}
+              onBack={handleBack}
+            />
+          )}
 
-      {currentPage === 'roulette' && recommendation && (
-        <RouletteGame
-          menus={recommendation.recommendations}
-          weather={weather}
-          location={location}
-          onResult={handleRouletteResult}
-          onBack={handleBackToResult}
-        />
-      )}
+          {currentPage === 'roulette' && recommendation && (
+            <RouletteGame
+              menus={recommendation.recommendations}
+              weather={weather}
+              location={location}
+              onResult={handleRouletteResult}
+              onBack={handleBackToResult}
+            />
+          )}
+          {currentPage === 'restaurant' && (
+            <RestaurantPage
+              menuName={selectedMenu}
+              weather={weather}
+              location={location}
+              userCoords={userCoords}
+              onBack={handleBackToResult}
+            />
+          )}
+        </div>
 
-      {currentPage === 'restaurant' && (
-        <RestaurantPage
-          menuName={selectedMenu}
-          weather={weather}
-          location={location}
-          userCoords={userCoords}
-          onBack={handleBackToResult}
-        />
-      )}
+        {/* 사이드바: 오늘의 추천 메뉴 (input, result, roulette, restaurant 페이지에서만 표시) */}
+        {['input', 'result', 'roulette', 'restaurant'].includes(currentPage) && weather && (
+          <aside className="w-full lg:w-[360px] lg:sticky lg:top-6 lg:self-start flex-shrink-0">
+            <DailyRecommendations 
+              location={location} 
+              userCoords={userCoords}
+              weather={weather}
+            />
+          </aside>
+        )}
+      </div>
     </div>
   );
 }

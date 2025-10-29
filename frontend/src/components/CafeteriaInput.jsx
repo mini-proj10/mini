@@ -70,9 +70,9 @@ const CafeteriaInput = ({ onSubmit, weather, location }) => {
 
   return (
     <div className="min-h-screen">
-      {/* 상단 날씨 정보 */}
+      {/* 상단 날씨 정보 - 좌측 상단으로 이동 */}
       {weather && (
-        <div className="absolute top-4 right-4 glass rounded-xl shadow-lg p-4">
+        <div className="absolute top-4 left-4 glass rounded-xl shadow-lg p-4 z-10">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-xl bg-yellow-300/80 flex items-center justify-center">
               <span className="text-xl">
@@ -93,7 +93,7 @@ const CafeteriaInput = ({ onSubmit, weather, location }) => {
       )}
 
       {/* 메인 컨텐츠 */}
-      <div className="mx-auto max-w-5xl px-4 py-10">
+      <div className="w-full px-4 py-10">
         <div className="glass rounded-3xl p-6 md:p-8 shadow-2xl">
           <div className="flex items-center justify-between gap-4 border-b border-black/5 pb-4">
             <div className="flex items-center gap-3">
