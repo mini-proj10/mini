@@ -3,13 +3,14 @@ from typing import Dict, List, Optional
 import os
 from dotenv import load_dotenv
 import json
+import re  # [NEW]
 
 load_dotenv()
 
 class AIService:
     def __init__(self):
         # Gemini API 설정
-        api_key = os.getenv("GEMINI_API_KEY", "AIzaSyBg5BiDftPSox4lsaI8kk4C62-qUPkk-58")
+        api_key = os.getenv("GEMINI_API_KEY", "AIzaSyC-xGiEnimi1OO58ldgySzpSmn2wM5Je8g")
         if api_key:
             genai.configure(api_key=api_key)
             self.use_ai = True
@@ -29,61 +30,187 @@ class AIService:
             print("⚠️  Gemini API 키가 없습니다. 규칙 기반 추천 로직을 사용합니다.")
     
     def _get_system_instruction(self) -> str:
-        """통합 시스템 인스트럭션 정의 (prompt (1).md + 프롬프트.txt)"""
+        """시스템 인스트럭션 정의 - 영양·맛·날씨·거리 기반 점심 메뉴 추천"""
         return """
-너는 점심 메뉴 추천 전문가로서, 영양·맛·날씨·이동거리·실제 후보 식당을 함께 고려한다.
-항상 구조화된 JSON만 출력하며, code block/explanation/이모지는 절대 사용하지 않는다.
+너는 **영양·맛·날씨·거리**를 함께 고려해 점심 메뉴를 추천하는 전문가이며, **JSON만 출력**한다.
 
-### 목표
-- 입력값: 오늘자 구내식당 메뉴, 현재 위치(latitude, longitude), 선호 이동거리, 날씨 데이터(JSON, 기온·강수·체감온도), 지도상 실제 후보 음식점 목록
-- 오직 카카오맵에 실존 등록된 인근 후보 식당만을 사용해, 최대 3개의 추천안을 제시한다(상위호환·비슷한 메뉴·와일드카드 카테고리별 1개씩, 가능하면).
-- 추천 설명은 해당 음식/식당을 추천하는 이유만 친근하고 부드러운 존댓말로 1~2문장, 이유엔 맛·재료·영양·날씨 중 최소 2개 근거를 포함해야 한다.
+**목표:** 사용자의 입력(구내식당 금일 메뉴, 위치, 선호 이동 거리, 날씨)을 바탕으로 **카카오맵에 실제 등록된 인근 음식점**만 사용하여 **최대 3개**의 대안을 추천한다. 가능하면 `상위 호환 메뉴`, `대체 메뉴`, `예외 메뉴`로 각각 1개씩 제시한다.
 
-### 세부 규칙
-#### 1. **메인 메뉴 인식**
-- 입력 메뉴가 여러 개면, 메인디시(대표 메뉴)만 뽑아 사용.
-- 우선순위: 찌개/탕/덮밥 등 국물·조리메뉴, 그 다음 메인단백질 요리(고기, 생선), 마지막으로 가장 이름이 복합적이거나 주재료가 명확한 항목.
-- 예시: "김치찌개, 쌀밥, 김치, 소세지 야채볶음" → "김치찌개"
-- 예시: "쌀밥, 제육볶음, 된장국" → "제육볶음"
+**출력:** **유효한 JSON만** 허용한다. 코드블록·여분 텍스트·이모지 금지.
 
-#### 2. **CAM(구내식당 회피) 모드 자동발동**
-- prefer_external: true이거나 회피 키워드("구내식당 싫어", "밖에서 먹을래", "지겨워", "외식할래" 등) 감지 시 외부 식당 추천 위주로 전환.
-- CAM 시 Top3 중 최소 2개는 지도상 15분 이내 외부 식당이어야 함.
-- 도보 0~15분 내 외부 식당 중심으로 추천.
+각 추천의 설명은 **해당 음식/음식점을 추천하는 이유만**, **1–2문장**, **반말 금지**, **친근하지만 부드러운 톤**으로 작성한다.
 
-#### 3. **거리 정책**
-- near: 도보 0~5분
-- mid: 도보 6~15분
-- 15분 이상 거리 음식점은 제외.
+추천 이유에는 **맛·재료·영양·날씨** 중 **최소 2개**의 근거를 반드시 포함한다.
 
-#### 4. **날씨 반영**
-- 더운 날: 냉면, 샐러드, 물회 등 시원한 메뉴
-- 추운 날: 따뜻한 국물 요리, 찌개류
-- 비 오는 날: 부침개, 전골, 실내 위주 음식
-- 맑고 적당한 날: 야외 식사 가능한 메뉴 포함 가능
+입력 정보가 부족하거나 모호하면 **추측하지 말고** `need_more_info=true`와 `missing` 배열을 반환한다.
 
-#### 5. **카테고리**
-- upgrade(상위호환): 구내식당 메뉴의 고급/프리미엄 버전 (예: 제육볶음 → 고추장삼겹살)
-- alternative(비슷한): 같은 계열이지만 약간 다른 메뉴 (예: 된장찌개 → 김치찌개)
-- wildcard(예외): 날씨나 사용자 기분을 반영한 완전히 다른 계열의 음식 (예: 비 오는 날 → 해물파전, 더운 날 → 냉모밀)
-- **중복 방지**: 각 카테고리(상위호환, 비슷한, 와일드카드)별로 서로 다른 메뉴를 추천해야 하며, 동일한 메뉴가 여러 카테고리에 중복되는 것을 절대 금지.
+카카오맵 등록 음식점 여부는 **입력으로 제공된 후보(nearbyCandidates)**만 신뢰한다. 후보가 없거나 거리 제약을 모두 초과하면 `need_more_info=true`를 반환한다.
 
-#### 6. **오타 및 유사어 자동 인식/보정**
-- 사용자 입력의 오타나 비슷한 음식명을 의미적으로 해석하여 보정.
-- 예: "된장찌계" → "된장찌개", "김치찌게" → "김치찌개"
-- 비슷한 음식 카테고리로 자동 보정.
+사고과정은 숨기고, 간단 요약은 `brief_rationale` 1–2문장으로만 제공한다.
 
-#### 7. **스코어링 가중치**
-- 기본 모드: taste 3, nutrition 4, practicality 3
-- CAM 모드: taste 3, nutrition 3, practicality 4
+## 입력 검증 규칙(중요)
+- 메뉴명은 **완성형 한글 2자 이상** 또는 **영문/숫자 2자 이상**이어야 한다.
+- **한글 자모(ㄱ/ㄴ/ㅇ/ㅐ 등)**만으로 이루어진 입력은 무효다.
+- 입력 토큰이 음식명이 아니라고 추정되면(예: "그림", "사진", "이미지", "파일", "텍스트", "문장", "단어", "테스트", "추천", "메뉴", "배고파" 등) 추천을 시도하지 말고 아래 형식만 반환한다.
+{
+  "recommendations": [],
+  "brief_rationale": "메뉴명이 음식으로 인식되지 않거나 길이가 너무 짧습니다.",
+  "need_more_info": true,
+  "missing": ["valid_food_name(예: 김치찌개/파스타/초밥 등)"]
+}
 
-#### 8. **필수 조건**
-- 후보 식당 정보, 위치, 날씨 등 필수 입력이 부족하면 절대 추측하지 말고 need_more_info=true와 missing 배열을 반환.
-- 카카오맵 등록 음식점 여부는 입력으로 주어진 후보만 사용하며, 후보가 없으면 need_more_info=true를 반환.
-- 사고과정은 숨기고, 간단 요약은 brief_rationale 1~2문장으로만 제공.
-- 구조화된 JSON 결과만 응답. 기타 텍스트, 코멘트, 이모티콘, 코드블록 등은 절대 포함하지 않음.
+## 메뉴 추천 전략
+
+### 1. 상위 호환 메뉴
+- **구내식당 메뉴와 강한 연관성** 필수
+- 같은 카테고리이거나 유사한 조리법/재료 사용
+- 예: 구내식당 "제육볶음" → 상위호환 "프리미엄 제육볶음", "삼겹살구이", "불고기정식"
+- 예: 구내식당 "오일 파스타" → 상위호환 "트러플 오일 파스타", "봉골레 파스타", "해산물 파스타"
+- **절대 피할 것**: 구내식당 "파스타"인데 상위호환으로 "초밥" 추천 (연관성 없음)
+
+### 2. 대체 메뉴
+- **구내식당 메뉴와 중간 정도 연관성** 필요
+- 비슷한 맛의 방향성이나 식사 스타일
+- 예: 구내식당 "제육볶음" → 대체 "돈까스", "닭갈비", "김치찌개"
+- 예: 구내식당 "오일 파스타" → 대체 "리조또", "피자", "샐러드"
+
+### 3. 예외 메뉴
+- **구내식당 메뉴와 거리가 먼 메뉴** (완전히 다른 카테고리)
+- **날씨와 도보 거리를 최우선 평가 기준**으로 선정
+- 날씨에 최적화된 메뉴 선택 (더운 날: 냉면/샐러드, 추운 날: 국물요리/찌개)
+- 도보 거리가 가까운 것을 우선 (5분 이내 최우선)
+- 예: 구내식당 "제육볶음" → 예외 "냉면"(더운 날), "우동"(추운 날)
+- 예: 구내식당 "오일 파스타" → 예외 "냉면"(더운 날), "김치찌개"(추운 날)
+
+## 필수 제약
+
+* **데이터 소스:** 반드시 `nearbyCandidates`에 포함된 가게만 사용(카카오맵 등록 보장).
+* **거리 제약:** `distancePref`를 초과하는 후보는 제외.
+  * `0-5`분 → 반경 약 **400m** 가정, `5-15`분 → 반경 약 **1200m** 가정(보행 80m/분).
+* **정렬 기준 (예외 메뉴 우선):**
+  * **예외 메뉴**: 날씨 적합도 > 도보 거리 > 품질
+  * **상위호환/대체 메뉴**: 메뉴 연관성 > 거리 > 품질
+* **중복 방지:** 동일 가게/메뉴 중복 금지, **최대 3개**.
+* **톤/길이:** 사유는 1–2문장, 반말 금지, 친근하지만 부드럽게.
+* **정합성:** 추천 메뉴는 해당 가게의 `menuExamples` 또는 합리적 범주의 대표 메뉴여야 한다(과도한 추측 금지).
+* **메뉴 연관성 검증:**
+  * 상위호환: 구내식당 메뉴와 **직접적 연관성** 필수
+  * 대체: 구내식당 메뉴와 **간접적 연관성** 필요
+  * 예외: 구내식당 메뉴와 **완전히 다른 카테고리** + 날씨/거리 최적화
+
+## 카카오맵 검색 정규화 규칙
+
+추천된 **구체 메뉴명 → 실제 검색 가능한 대표 키워드**로 변환하여 카카오맵 검색 적합성을 보장한다.
+
+### 변환 파이프라인
+
+1. **불용어/수식어 제거:** 시간대·세트·크기·한정·수식 표현 제거
+   * 제거 예: `런치/세트/정식/특/곱빼기/추천/한정/든든한/가성비/프로모션`
+   * 예) `런치 초밥세트` → `초밥`, `든든한 함박 스테이크` → `함박스테이크`
+
+2. **형태 통일:** 공백/하이픈/영문 혼용 정리
+   * 예) `함박 스테이크` → `함박스테이크`, `돈-카츠` → `돈까스`
+
+3. **대표 키워드 선택:** 가장 일반적·범용적인 **대표 1어**를 `normalized_search_query`로 지정
+   * 예) `모둠초밥` → `초밥`, `토마토 해산물 파스타` → `파스타`
+
+4. **보조 키워드 구성:** 검색 실패 대비 **1–3개 동의어/상하위 카테고리**를 `alt_queries`에 제공
+   * 예) `초밥`의 보조: `스시`, `모둠초밥`
+
+5. **카테고리 그룹코드:** 음식점은 기본 `FD6`, 카페·디저트는 `CE7`
+
+6. **거리 반영:** FE 검색 시 `distancePref`에 맞게 반경 필터(400m/1200m 등) 적용
+
+### 대표 매핑 예시
+
+* `초밥세트/런치초밥/특초밥` → **초밥** | alt: `스시`,`모둠초밥` | grp: `FD6`
+* `함박 스테이크/함박정식` → **함박스테이크** | alt: `함바그` | grp: `FD6`
+* `김치전골` → **김치찌개** | alt: `찌개`,`한식` | grp: `FD6`
+* `제육/제육덮밥` → **제육볶음** | alt: `제육`,`한식` | grp: `FD6`
+* `냉면(물/비빔)` → **냉면** | alt: `평양냉면`,`함흥냉면` | grp: `FD6`
+* `크림/토마토 파스타` → **파스타** | alt: `이탈리안`,`스파게티` | grp: `FD6`
+* `돈카츠/등심카츠` → **돈까스** | alt: `돈카츠`,`카츠` | grp: `FD6`
+* `샐러드볼/그레인볼` → **샐러드** | alt: `그레인볼` | grp: `FD6`
+* `포케` → **포케** | alt: `하와이안`,`샐러드` | grp: `FD6`
+* `분식(떡볶이/김밥/라면)` → **분식** | alt: `떡볶이`,`김밥` | grp: `FD6`
+* `중식(짜장/짬뽕/볶음밥)` → **중식** | alt: `짜장면`,`짬뽕` | grp: `FD6`
+
+## 정보 부족·모호성 처리
+
+`nearbyCandidates`가 없거나, 모두 `distancePref`를 초과하거나, 메뉴 정규화가 불가능하면 `need_more_info=true`를 반환한다.
 """
     
+    # =========================
+    # [NEW] 입력 정규화/검증 유틸
+    # =========================
+    _HANGUL_SYLLABLE_2 = re.compile(r"[가-힣]{2,}")      # 완성형 한글 2자 이상
+    _ALNUM_WORD_2 = re.compile(r"[A-Za-z0-9]{2,}")      # 영문/숫자 2자 이상
+    _HANGUL_JAMO_ONLY = re.compile(r"^[\u3131-\u318E]+$")  # 자모만(ㄱ~ㅣ, ㅐ 등)
+
+    FOOD_NEGATIVE = {
+        "그림","사진","이미지","파일","텍스트","문장","단어","테스트",
+        "후회돼","그렇게","뭐라도","아무거나","추천","메뉴","배고파"
+    }
+
+    FOOD_SUFFIXES = (
+        "찌개","국","탕","전골","덮밥","비빔밥","볶음밥","죽",
+        "면","라면","우동","냉면","칼국수","쌀국수","수제비","소바",
+        "구이","볶음","조림","찜","튀김","전",
+        "파스타","리조또","피자","스테이크","함박","돈까스","카츠",
+        "초밥","스시","사시미","회","동","규동","가츠동",
+        "마라탕","훠궈","짬뽕","짜장면","탕수육","유산슬","깐풍기",
+        "샐러드","포케","샌드위치","버거","토스트","빵",
+        "갈비탕","설렁탕","육개장","감자탕","해장국","곰탕"
+    )
+
+    FOOD_KEYWORDS = (
+        "김치찌개","된장찌개","부대찌개","순두부찌개","갈비탕","육개장","삼계탕","감자탕","해장국","곰탕",
+        "비빔밥","제육볶음","불고기","닭갈비","카레","쭈꾸미","보쌈","족발","칼국수","콩국수","막국수",
+        "냉면","비빔냉면","평양냉면","함흥냉면","잔치국수","우동","라면","쌀국수","소바",
+        "파스타","리조또","피자","스테이크","함박스테이크","돈까스","치즈돈까스","규카츠",
+        "초밥","스시","연어덮밥","사시미","회덮밥","가츠동","규동",
+        "마라탕","마라샹궈","꿔바로우","짜장면","짬뽕","볶음밥","탕수육",
+        "떡볶이","김밥","라볶이","순대","튀김","분식",
+        "샐러드","포케","그레인볼","샌드위치","버거","토스트"
+    )
+
+    def _normalize_and_split_menu(self, cafeteria_menu: str) -> List[str]:
+        text = (cafeteria_menu or "").strip()
+        text = re.sub(r"[\/\n\r;|]+", ",", text)  # 구분자 통일
+        text = re.sub(r"\s+", " ", text)
+        tokens = [t.strip() for t in text.split(",") if t.strip()]
+        return tokens
+
+    def _is_food_like(self, token: str) -> bool:
+        t = (token or "").strip()
+        if t in self.FOOD_NEGATIVE:
+            return False
+        if t in self.FOOD_KEYWORDS:
+            return True
+        if any(t.endswith(suf) for suf in self.FOOD_SUFFIXES):
+            return True
+        low = t.lower()
+        if any(k in low for k in (
+            "pasta","pizza","steak","ramen","soba","udon","sushi","donburi",
+            "risotto","burger","sandwich","poke","salad","noodle","noodles",
+            "curry","maratang"
+        )):
+            return True
+        return False
+
+    def _is_valid_menu_token(self, token: str) -> bool:
+        t = (token or "").strip()
+        if not t or t in self.FOOD_NEGATIVE:
+            return False
+        # 자모만(예: ㅇ, ㅐ 등) 금지
+        if self._HANGUL_JAMO_ONLY.match(t):
+            return False
+        # 최소 길이(한글 2자 또는 영숫자 2자)
+        if not (self._HANGUL_SYLLABLE_2.search(t) or self._ALNUM_WORD_2.search(t)):
+            return False
+        # 음식 의도 판별
+        return self._is_food_like(t)
+
     async def recommend_from_cafeteria_menu(
         self,
         weather: Dict,
@@ -92,89 +219,84 @@ class AIService:
         prefer_external: bool = True  # 기본적으로 외부식당 선호 (CAM 모드)
     ) -> Dict:
         """고급 프롬프트 시스템으로 구내식당 메뉴 기반 추천"""
+
+        # [NEW] 0) 입력 정규화 & 검증 (AI 호출 전 차단)
+        raw_tokens = self._normalize_and_split_menu(cafeteria_menu)
+        valid_tokens = [t for t in raw_tokens if self._is_valid_menu_token(t)]
+        if not valid_tokens:
+            return {
+                "recommendations": [],
+                "brief_rationale": "메뉴명이 음식으로 인식되지 않거나 길이가 너무 짧아 추천을 진행할 수 없습니다.",
+                "need_more_info": True,
+                "missing": ["valid_food_name(예: 김치찌개/파스타/초밥 등)"],
+                "cafeteria_menu": cafeteria_menu,
+                "weather_summary": f"{weather.get('temperature', 20)}°C, {weather.get('sky_condition', '맑음')}",
+                "weather_info": {
+                    "location": weather.get("location"),
+                    "temperature": weather.get("temperature"),
+                    "condition": weather.get("sky_condition"),
+                    "precipitation": weather.get("precipitation")
+                }
+            }
+        
+        cafeteria_menu_clean = ", ".join(valid_tokens)
         
         # API 키가 없으면 규칙 기반 추천 사용
         if not self.use_ai:
-            return self._get_fallback_cafeteria_recommendation(weather, cafeteria_menu)
+            return self._get_fallback_cafeteria_recommendation(weather, cafeteria_menu_clean)
         
         try:
-            # 사용자 입력 데이터 구조화
+            # 사용자 입력 데이터 구조화 (새 스키마)
             user_input = {
-                "prefer_external": prefer_external,  # CAM 모드 트리거
-                "today_cafeteria_menu": cafeteria_menu,
-                "current_weather": f"{weather.get('temperature', 20)}℃, {weather.get('sky_condition', '맑음')}",
-                "user_prefs": {
-                    "budget": 15000,  # 기본 예산
-                    "avoid": ["구내식당"] if prefer_external else [],
-                    "allergy": [],
-                    "favorite_flavor": self._get_flavor_from_weather(weather)
+                "menuToday": valid_tokens,  # [CHANGED] 검증 통과 토큰만 사용
+                "location": location if location else {"lat": 37.5665, "lng": 126.9780},  # 기본값: 서울
+                "distancePref": "5-15" if prefer_external else "0-5",  # 외부 선호 시 더 넓은 범위
+                "weather": {
+                    "tempC": weather.get('temperature', 20),
+                    "condition": self._normalize_weather_condition(weather.get('sky_condition', '맑음'), weather.get('temperature', 20))
                 },
-                "location": weather.get('location', '서울'),
-                "nearby_options": self._generate_nearby_options(cafeteria_menu, weather)
+                "nearbyCandidates": self._generate_nearby_candidates(cafeteria_menu_clean, weather, location)
             }
             
-            # 사용자 메시지 생성
+            # 사용자 메시지 생성 (새 규칙)
             user_message = f"""
-## 점심 메뉴 추천 요청 데이터
 아래 입력 데이터를 분석하여 최적의 점심 메뉴를 추천하고, 결과를 JSON 형식으로 반환하세요.
----
+
+입력 데이터:
 {json.dumps(user_input, ensure_ascii=False, indent=2)}
----
 
-**중요 규칙**:
-1. **menu** 필드는 지도 검색용으로 수식어 없이 간결하게 작성하세요.
-   - 좋은 예: "생선구이", "냉면", "김치찌개", "돈카츠", "파스타"
-   - 나쁜 예: "따뜻한 생선구이", "시원한 평양냉면", "고급 프리미엄 돈카츠"
-2. **display_name** 필드는 사용자에게 보여줄 풍부한 표현으로 작성하세요.
-   - 예: "따뜻한 생선구이 정식", "시원한 평양냉면", "바삭한 프리미엄 돈카츠"
-3. **중복 방지**: 각 카테고리(상위호환, 비슷한카테고리, 날씨기반)별로 서로 다른 메뉴를 추천해야 합니다. 동일한 메뉴가 여러 카테고리에 중복되면 안 됩니다.
-
-**추천 형식**:
+출력 형식 (반드시 이 스키마를 따르세요):
 {{
-    "mode": {{
-        "name": "CAM" 또는 "default",
-        "reason": "모드 선택 이유"
-    }},
-    "cafeteria_menu": "{cafeteria_menu}",
-    "recommendations": [
-        {{
-            "type": "상위호환",
-            "menu": "생선구이",
-            "display_name": "따뜻한 생선구이 정식",
-            "category": "음식 카테고리",
-            "reason": "추천 이유 (50자 이내)",
-            "price_range": "가격대",
-            "distance": {{
-                "walking_min": 5,
-                "bucket": "near",
-                "policy_fit": true
-            }},
-            "score": {{
-                "taste": 8,
-                "nutrition": 7,
-                "practicality": 9,
-                "total": 8.0
-            }},
-            "meta": {{
-                "source": "nearby",
-                "priceLevel": "₩₩",
-                "openNow": true
-            }}
-        }},
-        {{
-            "type": "비슷한카테고리",
-            "menu": "간결한 메뉴명",
-            "display_name": "풍부한 표현의 메뉴명",
-            ...
-        }},
-        {{
-            "type": "날씨기반",
-            "menu": "간결한 메뉴명",
-            "display_name": "풍부한 표현의 메뉴명",
-            ...
-        }}
-    ],
-    "weather_summary": "날씨 요약"
+  "recommendations": [
+    {{
+      "type": "상위 호환 메뉴 | 대체 메뉴 | 예외 메뉴",
+      "restaurant_name": "string (식당 이름)",
+      "place_id": "string",
+      "minutes_away": 0,
+      "menu_name": "string (메뉴 이름)",
+      "reason": "string (1-2문장, 맛/재료/영양/날씨 중 최소 2개 근거 포함)",
+      "price_range": "string (필수! 예: 8,000-12,000원, 10,000-15,000원)",
+      "normalized_search_query": "string (대표 키워드 1개)",
+      "alt_queries": ["string", "..."],
+      "category_group_code": "FD6"
+    }}
+  ],
+  "brief_rationale": "string (1-2문장)",
+  "need_more_info": false,
+  "missing": []
+}}
+
+**중요**: price_range는 반드시 포함해야 합니다. 일반적인 가격대를 추정하여 작성하세요.
+- 한식/분식: 7,000-10,000원
+- 일식/중식: 8,000-12,000원
+- 양식/프리미엄: 12,000-18,000원
+
+정보가 부족하면:
+{{
+  "recommendations": [],
+  "brief_rationale": "입력 정보가 부족하거나 검색 정규화가 불가능하여 추천을 완료할 수 없습니다.",
+  "need_more_info": true,
+  "missing": ["nearbyCandidates"]
 }}
 """
             
@@ -193,13 +315,20 @@ class AIService:
             # JSON 파싱
             try:
                 recommendation = json.loads(content)
-                print(f"✅ AI 추천 성공 (모드: {recommendation.get('mode', {}).get('name', 'default')})")
+                
+                # need_more_info 체크
+                if recommendation.get('need_more_info', False):
+                    print(f"⚠️ 정보 부족: {recommendation.get('missing', [])}")
+                    return self._get_fallback_cafeteria_recommendation(weather, cafeteria_menu_clean)
+                
+                print(f"✅ AI 추천 성공 ({len(recommendation.get('recommendations', []))}개 추천)")
+                
             except json.JSONDecodeError as e:
                 print(f"JSON 파싱 오류: {str(e)}")
                 print(f"응답 내용: {content[:500]}...")
-                return self._get_fallback_cafeteria_recommendation(weather, cafeteria_menu)
+                return self._get_fallback_cafeteria_recommendation(weather, cafeteria_menu_clean)
             
-            # 날씨 정보 추가
+            # 날씨 정보 추가 (하위 호환성)
             recommendation["weather_info"] = {
                 "location": weather.get("location"),
                 "temperature": weather.get("temperature"),
@@ -207,62 +336,195 @@ class AIService:
                 "precipitation": weather.get("precipitation")
             }
             
+            # 구내식당 메뉴 추가 (하위 호환성)
+            recommendation["cafeteria_menu"] = cafeteria_menu_clean
+            recommendation["weather_summary"] = f"{weather.get('temperature', 20)}°C, {weather.get('sky_condition', '맑음')}"
+            
             return recommendation
             
         except Exception as e:
             print(f"AI 추천 오류: {str(e)}")
             import traceback
             traceback.print_exc()
-            return self._get_fallback_cafeteria_recommendation(weather, cafeteria_menu)
+            return self._get_fallback_cafeteria_recommendation(weather, cafeteria_menu_clean)
     
-    def _get_flavor_from_weather(self, weather: Dict) -> str:
-        """날씨 기반 선호 맛 추출"""
+    def _normalize_weather_condition(self, condition: str, temp: float) -> str:
+        """날씨 상태를 표준 형식으로 정규화"""
+        if temp >= 28:
+            return "무덥다"
+        elif temp <= 5:
+            return "쌀쌀"
+        elif '비' in condition:
+            return "비"
+        elif '눈' in condition:
+            return "눈"
+        elif '흐림' in condition:
+            return "흐림"
+        elif '맑' in condition:
+            return "맑음"
+        else:
+            return condition
+    
+    def _generate_nearby_candidates(self, cafeteria_menu: str, weather: Dict, location: Optional[Dict] = None) -> List[Dict]:
+        """가상의 주변 식당 후보 생성 (새 스키마) - 실제로는 카카오맵 API와 연동"""
         temp = weather.get('temperature', 20)
         condition = weather.get('sky_condition', '맑음')
         
-        if temp > 25:
-            return "시원함, 깔끔함, 상큼함"
-        elif temp < 10:
-            return "따뜻함, 든든함, 얼큰함"
-        elif '비' in condition or '눈' in condition:
-            return "따뜻함, 부드러움, 위로"
+        # 구내식당 메뉴 분석
+        menu_lower = cafeteria_menu.lower()
+        
+        # 기본 후보 (항상 포함)
+        candidates = []
+        
+        # 한식 옵션
+        candidates.extend([
+            {
+                "placeId": "place_korean_1",
+                "name": "프리미엄 한식당",
+                "category": "한식",
+                "minutesAway": 10,
+                "menuExamples": ["한정식", "불고기정식", "제육볶음", "갈비찜"]
+            },
+            {
+                "placeId": "place_korean_2",
+                "name": "김치찌개 전문점",
+                "category": "한식",
+                "minutesAway": 5,
+                "menuExamples": ["김치찌개", "순두부찌개", "된장찌개", "부대찌개"]
+            },
+            {
+                "placeId": "place_korean_3",
+                "name": "국밥집",
+                "category": "한식",
+                "minutesAway": 7,
+                "menuExamples": ["사골국밥", "설렁탕", "갈비탕", "육개장"]
+            }
+        ])
+        
+        # 일식 옵션
+        candidates.extend([
+            {
+                "placeId": "place_japanese_1",
+                "name": "스시로",
+                "category": "일식",
+                "minutesAway": 6,
+                "menuExamples": ["초밥", "모둠초밥", "연어덮밥", "회"]
+            },
+            {
+                "placeId": "place_japanese_2",
+                "name": "돈까스 전문점",
+                "category": "일식",
+                "minutesAway": 8,
+                "menuExamples": ["돈까스", "치즈돈까스", "생선까스", "우동"]
+            },
+            {
+                "placeId": "place_japanese_3",
+                "name": "라멘야",
+                "category": "일식",
+                "minutesAway": 9,
+                "menuExamples": ["라멘", "돈코츠라멘", "미소라멘", "차슈라멘"]
+            }
+        ])
+        
+        # 양식 옵션 (파스타 관련 메뉴 있으면 더 추가)
+        if '파스타' in menu_lower or '스파게티' in menu_lower:
+            candidates.extend([
+                {
+                    "placeId": "place_italian_1",
+                    "name": "트러플 이탈리안",
+                    "category": "양식",
+                    "minutesAway": 8,
+                    "menuExamples": ["트러플 파스타", "봉골레 파스타", "까르보나라", "해산물 파스타"]
+                },
+                {
+                    "placeId": "place_italian_2",
+                    "name": "파스타 하우스",
+                    "category": "양식",
+                    "minutesAway": 6,
+                    "menuExamples": ["크림 파스타", "토마토 파스타", "오일 파스타", "로제 파스타"]
+                },
+                {
+                    "placeId": "place_italian_3",
+                    "name": "이탈리안 키친",
+                    "category": "양식",
+                    "minutesAway": 10,
+                    "menuExamples": ["리조또", "피자", "샐러드", "파스타"]
+                }
+            ])
         else:
-            return "균형잡힘, 신선함, 다양함"
-    
-    def _generate_nearby_options(self, cafeteria_menu: str, weather: Dict) -> List[Dict]:
-        """가상의 주변 식당 옵션 생성 (실제로는 카카오맵 API와 연동 가능)"""
-        temp = weather.get('temperature', 20)
-        
-        # 온도에 따른 기본 옵션
-        options = []
-        
-        if temp > 25:
-            options.extend([
-                {"name": "시원한 냉면가게", "category": "한식/면", "walking_min": 7, "priceLevel": "₩₩", "openNow": True, "details": "평양냉면, 비빔냉면"},
-                {"name": "프레시 샐러드 바", "category": "샐러드/서양식", "walking_min": 4, "priceLevel": "₩₩", "openNow": True, "details": "닭가슴살 샐러드, 저칼로리"},
-            ])
-        elif temp < 10:
-            options.extend([
-                {"name": "얼큰 김치찌개집", "category": "한식/찌개", "walking_min": 5, "priceLevel": "₩", "openNow": True, "details": "김치찌개, 순두부찌개"},
-                {"name": "사골국밥 전문점", "category": "한식/국밥", "walking_min": 8, "priceLevel": "₩₩", "openNow": True, "details": "진한 사골국밥"},
-            ])
-        else:
-            options.extend([
-                {"name": "프리미엄 한식당", "category": "한식/정식", "walking_min": 10, "priceLevel": "₩₩₩", "openNow": True, "details": "계절 반찬 정식"},
-                {"name": "맛있는 일식집", "category": "일식/초밥", "walking_min": 6, "priceLevel": "₩₩", "openNow": True, "details": "런치 초밥 세트"},
+            candidates.extend([
+                {
+                    "placeId": "place_western_1",
+                    "name": "스테이크 하우스",
+                    "category": "양식",
+                    "minutesAway": 12,
+                    "menuExamples": ["스테이크", "함박스테이크", "파스타", "샐러드"]
+                },
+                {
+                    "placeId": "place_western_2",
+                    "name": "샐러드 바",
+                    "category": "양식",
+                    "minutesAway": 5,
+                    "menuExamples": ["샐러드", "그레인볼", "포케", "샌드위치"]
+                }
             ])
         
-        # 구내식당 대안 (항상 포함)
-        options.append({
-            "name": "구내식당 대체 메뉴", 
-            "category": "사내", 
-            "walking_min": 0, 
-            "priceLevel": "₩", 
-            "openNow": True, 
-            "details": f"{cafeteria_menu}의 대안"
+        # 중식 옵션
+        candidates.extend([
+            {
+                "placeId": "place_chinese_1",
+                "name": "차이나타운",
+                "category": "중식",
+                "minutesAway": 9,
+                "menuExamples": ["짜장면", "짬뽕", "볶음밥", "탕수육"]
+            },
+            {
+                "placeId": "place_chinese_2",
+                "name": "마라탕 전문점",
+                "category": "중식",
+                "minutesAway": 7,
+                "menuExamples": ["마라탕", "마라샹궈", "꿔바로우", "양꼬치"]
+            }
+        ])
+        
+        # 분식 옵션 (가까운 거리)
+        candidates.append({
+            "placeId": "place_snack_1",
+            "name": "분식천국",
+            "category": "분식",
+            "minutesAway": 3,
+            "menuExamples": ["떡볶이", "김밥", "라면", "순대", "튀김"]
         })
         
-        return options
+        # 날씨별 추가 옵션
+        if temp > 25:
+            candidates.append({
+                "placeId": "place_cold_1",
+                "name": "냉면 전문점",
+                "category": "한식",
+                "minutesAway": 6,
+                "menuExamples": ["평양냉면", "비빔냉면", "물냉면", "막국수"]
+            })
+        elif temp < 10:
+            candidates.append({
+                "placeId": "place_hot_1",
+                "name": "전골&찌개",
+                "category": "한식",
+                "minutesAway": 7,
+                "menuExamples": ["부대찌개", "김치찌개", "전골", "곱창전골"]
+            })
+        
+        # 비/눈 오는 날 추가
+        if '비' in condition or '눈' in condition:
+            candidates.append({
+                "placeId": "place_rainy_1",
+                "name": "부침개 전문점",
+                "category": "한식",
+                "minutesAway": 4,
+                "menuExamples": ["파전", "김치전", "해물파전", "막걸리"]
+            })
+        
+        return candidates
     
     def _build_prompt(self, weather: Dict, preferences: Optional[Dict]) -> str:
         """프롬프트 생성"""
@@ -323,7 +585,7 @@ class AIService:
     ],
     "steps": [
         "1단계 설명",
-        "2단계 설명",
+        "2단계 설명"
     ],
     "cooking_time": "조리 시간",
     "difficulty": "쉬움/보통/어려움"
@@ -477,17 +739,15 @@ class AIService:
                     item["category"] = food_type
                     candidates.append(item)
         
-        # 기분에 따른 필터링
-        import random
-        
         # 기분별 추천 메뉴 조정
+        import random
         mood_preferences = {
-            "기쁜": ["분식", "양식"],  # 가벼운 음식
-            "슬픈": ["한식", "중식"],  # 위로되는 음식
-            "화난": ["한식", "중식"],  # 매운 음식
-            "피곤한": ["한식", "일식"],  # 든든한 음식
-            "스트레스": ["중식", "한식"],  # 얼큰한 음식
-            "평범한": None  # 제한 없음
+            "기쁜": ["분식", "양식"],
+            "슬픈": ["한식", "중식"],
+            "화난": ["한식", "중식"],
+            "피곤한": ["한식", "일식"],
+            "스트레스": ["중식", "한식"],
+            "평범한": None
         }
         
         if pref_mood in mood_preferences and mood_preferences[pref_mood]:
@@ -499,7 +759,6 @@ class AIService:
         if candidates:
             selected = random.choice(candidates)
         else:
-            # 기본 메뉴
             selected = {
                 "name": "비빔밥",
                 "category": "한식",
@@ -537,37 +796,54 @@ class AIService:
         }
     
     def _get_fallback_cafeteria_recommendation(self, weather: Dict, cafeteria_menu: str) -> Dict:
-        """API 오류 시 기본 추천"""
+        """API 오류 시 기본 추천 (새 스키마)"""
         temp = weather.get("temperature", 20)
         
-        # 간단한 규칙 기반 추천
         recommendations = [
             {
-                "type": "상위호환",
-                "menu": "프리미엄 한정식",
-                "category": "한식",
-                "reason": "구내식당보다 고급스러운 한식 코스",
-                "price_range": "15,000-20,000원"
+                "type": "상위 호환 메뉴",
+                "restaurant_name": "프리미엄 한식당",
+                "place_id": "fallback_001",
+                "minutes_away": 10,
+                "menu_name": "한정식",
+                "reason": "구내식당보다 고급스러운 재료와 정성스러운 조리로 영양 균형이 뛰어납니다.",
+                "price_range": "15,000-20,000원",
+                "normalized_search_query": "한정식",
+                "alt_queries": ["한식", "정식"],
+                "category_group_code": "FD6"
             },
             {
-                "type": "비슷한카테고리",
-                "menu": "김치찌개",
-                "category": "한식",
-                "reason": "구수하고 든든한 한식",
-                "price_range": "8,000-10,000원"
+                "type": "대체 메뉴",
+                "restaurant_name": "김치찌개 전문점",
+                "place_id": "fallback_002",
+                "minutes_away": 5,
+                "menu_name": "김치찌개",
+                "reason": "구수한 맛과 풍부한 재료로 든든하며, 영양가 높은 한식입니다.",
+                "price_range": "8,000-10,000원",
+                "normalized_search_query": "김치찌개",
+                "alt_queries": ["찌개", "한식"],
+                "category_group_code": "FD6"
             },
             {
-                "type": "날씨기반",
-                "menu": "냉면" if temp > 25 else "칼국수",
-                "category": "한식",
-                "reason": f"{'더운' if temp > 25 else '쌀쌀한'} 날씨에 어울리는 메뉴",
-                "price_range": "8,000-12,000원"
+                "type": "예외 메뉴",
+                "restaurant_name": "냉면집" if temp > 25 else "칼국수집",
+                "place_id": "fallback_003",
+                "minutes_away": 7,
+                "menu_name": "냉면" if temp > 25 else "칼국수",
+                "reason": f"{'시원한 육수와 신선한 재료로 더위를 식히기' if temp > 25 else '따뜻한 국물과 쫄깃한 면발로 몸을 녹이기'} 좋으며, 날씨에 최적화된 메뉴입니다.",
+                "price_range": "9,000-12,000원",
+                "normalized_search_query": "냉면" if temp > 25 else "칼국수",
+                "alt_queries": ["평양냉면", "함흥냉면"] if temp > 25 else ["한식", "국수"],
+                "category_group_code": "FD6"
             }
         ]
         
         return {
-            "cafeteria_menu": cafeteria_menu,
             "recommendations": recommendations,
+            "brief_rationale": f"현재 날씨({temp}°C, {weather.get('sky_condition', '맑음')})를 고려하여 영양과 맛의 균형을 맞춘 메뉴를 추천했습니다.",
+            "need_more_info": False,
+            "missing": [],
+            "cafeteria_menu": cafeteria_menu,
             "weather_summary": f"{temp}°C, {weather.get('sky_condition', '맑음')}",
             "weather_info": {
                 "location": weather.get("location"),
@@ -599,4 +875,3 @@ class AIService:
             "alternatives": ["불고기", "갈비탕"],
             "weather_info": weather
         }
-

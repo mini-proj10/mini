@@ -56,7 +56,7 @@ const RouletteGame = ({ menus, weather, location, onResult, onBack }) => {
             </div>
             <div>
               <div className="text-[13px] text-slate-500">현재 위치</div>
-              <div className="font-semibold">{location || weather.location}</div>
+              <div className="font-semibold text-sm">{location || weather.location || '서울시'}</div>
             </div>
           </div>
           <div className="chip rounded-xl px-3 py-1.5 text-sm font-medium text-slate-700 mt-2">
@@ -136,7 +136,7 @@ const RouletteGame = ({ menus, weather, location, onResult, onBack }) => {
                         transformOrigin: '0 0'
                       }}
                     >
-                      {menu.display_name || menu.menu}
+                      {menu.menu_name || menu.display_name || menu.menu}
                     </div>
                   </div>
                 );
@@ -176,11 +176,20 @@ const RouletteGame = ({ menus, weather, location, onResult, onBack }) => {
             <div className="text-center">
               <div className="text-6xl mb-4">🎉</div>
               <h2 className="card-title text-4xl justify-center mb-4">
-                {result.display_name || result.menu}
+                {result.menu_name || result.display_name || result.menu}
               </h2>
+              {result.restaurant_name && (
+                <p className="text-slate-600 mb-2">📍 {result.restaurant_name}</p>
+              )}
               <div className="flex gap-2 justify-center mb-4">
-                <div className="badge badge-lg badge-outline">{result.category}</div>
-                <div className="badge badge-lg badge-primary">{result.price_range}</div>
+                {(result.minutes_away || result.distance?.walking_min) && (
+                  <div className="badge badge-lg badge-outline">
+                    🚶 도보 {result.minutes_away || result.distance.walking_min}분
+                  </div>
+                )}
+                {result.price_range && (
+                  <div className="badge badge-lg badge-primary">💰 {result.price_range}</div>
+                )}
               </div>
               <p className="text-base-content/80 mb-6 leading-relaxed">
                 {result.reason}
@@ -193,7 +202,7 @@ const RouletteGame = ({ menus, weather, location, onResult, onBack }) => {
                   🔄 다시 돌리기
                 </button>
                 <button
-                  onClick={() => onResult(result.menu)}
+                  onClick={() => onResult(result.menu_name || result.menu)}
                   className="btn-primary rounded-xl px-6 py-3 text-[15px] font-semibold"
                 >
                   ✓ 이 메뉴로 결정!
@@ -213,8 +222,13 @@ const RouletteGame = ({ menus, weather, location, onResult, onBack }) => {
                     key={index}
                     className="glass rounded-xl shadow p-3 text-center"
                   >
-                    <p className="font-semibold text-slate-800">{menu.display_name || menu.menu}</p>
-                    <p className="text-xs text-slate-500">{menu.category}</p>
+                    <p className="font-semibold text-slate-800">{menu.menu_name || menu.display_name || menu.menu}</p>
+                    {menu.restaurant_name && (
+                      <p className="text-xs text-slate-500 mb-1">📍 {menu.restaurant_name}</p>
+                    )}
+                    {menu.price_range && (
+                      <p className="text-xs text-slate-600">💰 {menu.price_range}</p>
+                    )}
                   </div>
                 ))}
               </div>

@@ -15,11 +15,16 @@ const CafeteriaResult = ({ recommendation, weather, location, onSelectMenu, onSh
 
   const handleConfirm = () => {
     if (selectedMenu) {
-      onSelectMenu(selectedMenu.menu);
+      onSelectMenu(selectedMenu.menu_name || selectedMenu.menu);
     }
   };
 
   const getTypeColor = (type) => {
+    // 새 스키마와 기존 스키마 모두 지원
+    if (type.includes('상위')) return 'from-yellow-500 to-orange-500';
+    if (type.includes('대체')) return 'from-green-500 to-teal-500';
+    if (type.includes('예외')) return 'from-blue-500 to-purple-500';
+    
     switch (type) {
       case '상위호환':
         return 'from-yellow-500 to-orange-500';
@@ -33,6 +38,11 @@ const CafeteriaResult = ({ recommendation, weather, location, onSelectMenu, onSh
   };
 
   const getTypeEmoji = (type) => {
+    // 새 스키마와 기존 스키마 모두 지원
+    if (type.includes('상위')) return '⭐';
+    if (type.includes('대체')) return '🍽️';
+    if (type.includes('예외')) return '🌤️';
+    
     switch (type) {
       case '상위호환':
         return '⭐';
@@ -62,7 +72,7 @@ const CafeteriaResult = ({ recommendation, weather, location, onSelectMenu, onSh
             </div>
             <div>
               <div className="text-[13px] text-slate-500">현재 위치</div>
-              <div className="font-semibold">{location || weather.location}</div>
+              <div className="font-semibold text-sm">{location || weather.location || '서울시'}</div>
             </div>
           </div>
           <div className="chip rounded-xl px-3 py-1.5 text-sm font-medium text-slate-700 mt-2">
@@ -98,7 +108,7 @@ const CafeteriaResult = ({ recommendation, weather, location, onSelectMenu, onSh
               key={index}
               onClick={() => handleMenuClick(item)}
               className={`glass rounded-2xl shadow-2xl cursor-pointer transition-all transform hover:scale-105 overflow-hidden ${
-                selectedMenu?.menu === item.menu ? 'ring-4 ring-indigo-500' : ''
+                selectedMenu?.menu_name === item.menu_name || selectedMenu?.menu === item.menu ? 'ring-4 ring-indigo-500' : ''
               }`}
             >
               {/* 카드 헤더 */}
@@ -107,7 +117,7 @@ const CafeteriaResult = ({ recommendation, weather, location, onSelectMenu, onSh
                   <span className="font-bold text-lg">
                     {getTypeEmoji(item.type)} {item.type}
                   </span>
-                  {selectedMenu?.menu === item.menu && (
+                  {(selectedMenu?.menu_name === item.menu_name || selectedMenu?.menu === item.menu) && (
                     <div className="badge badge-success text-2xl">✓</div>
                   )}
                 </div>
@@ -115,29 +125,36 @@ const CafeteriaResult = ({ recommendation, weather, location, onSelectMenu, onSh
 
               {/* 카드 본문 */}
               <div className="card-body">
-                <h3 className="card-title text-3xl">
-                  {item.display_name || item.menu}
+                {/* 메뉴명 - 상단에 크게 */}
+                <h3 className="card-title text-2xl font-bold mb-1">
+                  {item.menu_name || item.display_name || item.menu}
                 </h3>
-                <div className="flex gap-2 flex-wrap mb-2">
-                  <div className="badge badge-outline">{item.category}</div>
-                </div>
                 
-                <p className="text-base-content/80 leading-relaxed my-2">
-                  {item.reason}
-                </p>
-
-                {/* 거리 정보 */}
-                {item.distance && (
-                  <div className="text-sm text-base-content/70 my-2">
-                    🚶 도보 {item.distance.walking_min}분
+                {/* 식당명 - 메뉴명 바로 아래 */}
+                {item.restaurant_name && (
+                  <div className="text-sm text-slate-600 mb-3">
+                    📍 {item.restaurant_name}
                   </div>
                 )}
-
-                <div className="card-actions justify-end mt-2">
-                  <div className="badge badge-primary badge-lg">
-                    💰 {item.price_range}
-                  </div>
+                
+                {/* 카테고리와 거리, 가격 정보 */}
+                <div className="flex gap-2 flex-wrap mb-3">
+                  {(item.minutes_away || item.distance?.walking_min) && (
+                    <div className="badge badge-outline">
+                      🚶 도보 {item.minutes_away || item.distance.walking_min}분
+                    </div>
+                  )}
+                  {item.price_range && (
+                    <div className="badge badge-primary">
+                      💰 {item.price_range}
+                    </div>
+                  )}
                 </div>
+                
+                {/* 추천 이유 - 아래에 */}
+                <p className="text-base-content/70 text-sm leading-relaxed">
+                  {item.reason}
+                </p>
               </div>
             </div>
           ))}
@@ -157,7 +174,7 @@ const CafeteriaResult = ({ recommendation, weather, location, onSelectMenu, onSh
             disabled={!selectedMenu}
             className="btn-primary rounded-xl px-6 py-3 text-[15px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {selectedMenu ? `${selectedMenu.display_name || selectedMenu.menu} 주변 식당 찾기 🔍` : '메뉴를 선택해주세요'}
+            {selectedMenu ? `${selectedMenu.menu_name || selectedMenu.display_name || selectedMenu.menu} 주변 식당 찾기 🔍` : '메뉴를 선택해주세요'}
           </button>
         </div>
 

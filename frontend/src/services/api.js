@@ -10,8 +10,12 @@ const api = axios.create({
 });
 
 export const weatherAPI = {
-  getWeather: async (location) => {
-    const response = await api.get(`/api/weather?location=${location}`);
+  getWeather: async (location, coords = null) => {
+    let url = `/api/weather?location=${encodeURIComponent(location)}`;
+    if (coords && coords.latitude && coords.longitude) {
+      url += `&lat=${coords.latitude}&lng=${coords.longitude}`;
+    }
+    const response = await api.get(url);
     return response.data;
   },
 };

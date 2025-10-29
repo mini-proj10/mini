@@ -63,10 +63,10 @@ async def root():
     }
 
 @app.get("/api/weather")
-async def get_weather(location: str = "서울"):
-    """날씨 정보 조회"""
+async def get_weather(location: str = "서울", lat: Optional[float] = None, lng: Optional[float] = None):
+    """날씨 정보 조회 (좌표 우선, 없으면 location 사용)"""
     try:
-        weather_data = await weather_service.get_weather(location)
+        weather_data = await weather_service.get_weather(location, lat, lng)
         return {
             "success": True,
             "data": weather_data
@@ -103,8 +103,19 @@ async def recommend_menu(request: RecommendRequest):
 async def recommend_from_cafeteria(request: CafeteriaMenuRequest):
     """구내식당 메뉴 기반 외부 메뉴 추천 (고급 프롬프트 시스템 + CAM 모드)"""
     try:
-        # 1. 날씨 정보 가져오기
-        weather_data = await weather_service.get_weather(request.location)
+        # 1. 날씨 정보 가져오기 (사용자 좌표가 있으면 우선 사용)
+        lat = None
+        lng = None
+        if request.user_location:
+            lat = request.user_location.get('latitude')
+            lng = request.user_location.get('longitude')
+            print(f"📍 사용자 좌표 사용: lat={lat}, lng={lng}")
+        
+        weather_data = await weather_service.get_weather(
+            request.location,
+            lat=lat,
+            lng=lng
+        )
         
         # 2. 구내식당 메뉴 기반 추천 (CAM 모드 지원)
         recommendation = await ai_service.recommend_from_cafeteria_menu(

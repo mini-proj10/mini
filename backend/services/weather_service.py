@@ -33,14 +33,20 @@ class WeatherService:
         }
         return location_coords.get(location, (37.5665, 126.9780))  # 기본값: 서울
     
-    async def get_weather(self, location: str = "서울") -> Dict:
+    async def get_weather(self, location: str = "서울", lat: float = None, lng: float = None) -> Dict:
         """Open-Meteo API로 날씨 정보 조회 (무료, 빠름)"""
         try:
-            lat, lon = self.get_location_coords(location)
+            # 좌표가 제공되면 우선 사용, 없으면 location으로 좌표 찾기
+            if lat is not None and lng is not None:
+                print(f"📍 사용자 제공 좌표 사용: {lat}, {lng} ({location})")
+                latitude, longitude = lat, lng
+            else:
+                print(f"📍 location 기반 좌표 사용: {location}")
+                latitude, longitude = self.get_location_coords(location)
             
             params = {
-                "latitude": lat,
-                "longitude": lon,
+                "latitude": latitude,
+                "longitude": longitude,
                 "current": "temperature_2m,relative_humidity_2m,weather_code,precipitation,cloud_cover",
                 "timezone": "Asia/Seoul"
             }

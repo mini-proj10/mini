@@ -1,500 +1,514 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>구내식당 직장인을 위한 점심 추천</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
-        }
-        
-        /* 룰렛 애니메이션 */
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        
-        .roulette-spinning {
-            animation: spin 0.1s linear infinite;
-        }
-        
-        /* 페이드인 애니메이션 */
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        
-        .fade-in {
-            animation: fadeIn 0.5s ease-out;
-        }
-        
-        /* 이미지 업로드 영역 스타일 */
-        .upload-area {
-            border: 3px dashed #cbd5e0;
-            transition: all 0.3s;
-        }
-        
-        .upload-area:hover {
-            border-color: #667eea;
-            background-color: #f7fafc;
-        }
-        
-        .upload-area.drag-over {
-            border-color: #667eea;
-            background-color: #edf2f7;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>구내식당 직장인을 위한 점심 추천</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif; }
+    @keyframes spin { 0%{ transform: rotate(0deg);} 100%{ transform: rotate(360deg);} }
+    .roulette-spinning { animation: spin 0.1s linear infinite; }
+    @keyframes fadeIn { from { opacity:0; transform: translateY(20px);} to { opacity:1; transform: translateY(0);} }
+    .fade-in { animation: fadeIn 0.5s ease-out; }
+
+    /* 업로드 영역 */
+    .upload-area { border: 3px dashed #cbd5e0; transition: all 0.3s; }
+    .upload-area:hover { border-color: #667eea; background-color: #f7fafc; }
+    .upload-area.drag-over { border-color: #667eea; background-color: #edf2f7; }
+  </style>
 </head>
 <body class="bg-gradient-to-br from-purple-600 via-pink-500 to-orange-500 min-h-screen">
-    <div id="app" class="container mx-auto px-4 py-8 max-w-4xl">
-        
-        <!-- 1. 위치 정보 요청 화면 -->
-        <div id="locationScreen" class="fade-in">
-            <div class="bg-white rounded-3xl shadow-2xl p-8 text-center">
-                <div class="mb-6">
-                    <svg class="w-24 h-24 mx-auto text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                    </svg>
-                </div>
-                <h1 class="text-3xl font-bold text-gray-800 mb-4">🍽️ 구내식당 직장인 점심 추천</h1>
-                <p class="text-gray-600 mb-8">날씨 기반 맞춤 메뉴를 추천해드립니다.<br>위치 정보를 허용해주세요.</p>
-                <button onclick="requestLocation()" class="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-4 rounded-full text-lg font-semibold hover:shadow-lg transform hover:scale-105 transition-all">
-                    위치 정보 허용하기
-                </button>
-                <div id="locationError" class="mt-4 text-red-500 hidden"></div>
+  <div id="app" class="container mx-auto px-4 py-8 max-w-4xl">
+
+    <!-- 0. 전역 경고 배너 (상단 고정) -->
+    <div id="globalAlert" class="fixed left-1/2 -translate-x-1/2 top-4 z-50 w-[min(92vw,740px)] hidden" style="display:none">
+      <div class="rounded-xl border border-red-200 bg-red-50/95 backdrop-blur p-4 text-red-800 shadow-xl">
+        <div class="flex items-start gap-3">
+          <div class="text-xl leading-none">⚠️</div>
+          <div class="flex-1">
+            <p id="alertTitle" class="font-semibold">메뉴 인식 불가</p>
+            <p id="alertDesc" class="text-sm mt-1">입력하신 내용이 음식명으로 인식되지 않았습니다.</p>
+            <div class="mt-3 flex gap-2">
+              <button id="alertHomeBtn"
+                      onclick="goHomeFromAlert()"
+                      class="px-3 py-1.5 rounded-md bg-red-600 text-white text-sm hover:bg-red-700 focus:outline-none">
+                처음으로
+              </button>
+              <button id="alertCloseBtn"
+                      onclick="hideAlert()"
+                      class="px-3 py-1.5 rounded-md text-red-700 hover:bg-red-100 text-sm focus:outline-none">
+                닫기
+              </button>
             </div>
+          </div>
         </div>
-
-        <!-- 2. 식단표 입력 화면 -->
-        <div id="menuInputScreen" class="hidden fade-in">
-            <div class="bg-white rounded-3xl shadow-2xl p-8">
-                <!-- 날씨 정보 표시 -->
-                <div id="weatherInfo" class="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center">
-                            <span id="weatherIcon" class="text-4xl mr-3">☀️</span>
-                            <div>
-                                <p class="text-sm text-gray-600">현재 위치</p>
-                                <p id="locationName" class="font-semibold text-gray-800">서울</p>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <p id="temperature" class="text-2xl font-bold text-gray-800">23°C</p>
-                            <p id="weatherDesc" class="text-sm text-gray-600">맑음</p>
-                        </div>
-                    </div>
-                </div>
-
-                <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">오늘의 구내식당 메뉴를 입력해주세요</h2>
-                
-                <!-- 이미지 업로드 영역 -->
-                <div class="mb-6">
-                    <label class="block text-gray-700 font-semibold mb-2">📸 식단표 이미지 업로드</label>
-                    <div id="imageUploadArea" class="upload-area rounded-xl p-8 text-center cursor-pointer">
-                        <input type="file" id="menuImageInput" accept="image/*" class="hidden">
-                        <svg class="w-16 h-16 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                        </svg>
-                        <p class="text-gray-600">클릭하거나 이미지를 드래그하세요</p>
-                        <p class="text-sm text-gray-400 mt-2">JPG, PNG 파일 (최대 5MB)</p>
-                    </div>
-                    <div id="imagePreview" class="mt-4 hidden">
-                        <img id="previewImg" class="rounded-xl max-h-64 mx-auto shadow-lg">
-                    </div>
-                </div>
-
-                <div class="text-center my-4 text-gray-500 font-semibold">또는</div>
-
-                <!-- 텍스트 입력 영역 -->
-                <div class="mb-6">
-                    <label class="block text-gray-700 font-semibold mb-2">✍️ 금일 메뉴 텍스트 입력</label>
-                    <textarea id="menuTextInput" rows="4" placeholder="예: 김치찌개, 된장찌개, 불고기 덮밥" class="w-full border-2 border-gray-300 rounded-xl p-4 focus:border-purple-500 focus:outline-none"></textarea>
-                </div>
-
-                <button onclick="submitMenu()" class="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 rounded-full text-lg font-semibold hover:shadow-lg transform hover:scale-105 transition-all">
-                    메뉴 추천받기 🎯
-                </button>
-            </div>
-        </div>
-
-        <!-- 3. AI 추천 결과 화면 -->
-        <div id="recommendationScreen" class="hidden fade-in">
-            <div class="bg-white rounded-3xl shadow-2xl p-8">
-                <h2 class="text-2xl font-bold text-gray-800 mb-2 text-center">AI가 추천하는 오늘의 메뉴</h2>
-                <p class="text-center text-gray-600 mb-6">구내식당 메뉴를 기반으로 3가지를 추천해드립니다</p>
-                
-                <div id="recommendedMenus" class="space-y-4 mb-6">
-                    <!-- 추천 메뉴들이 여기에 동적으로 추가됩니다 -->
-                </div>
-
-                <div class="flex gap-4">
-                    <button onclick="showRouletteScreen()" class="flex-1 bg-gradient-to-r from-yellow-400 to-orange-500 text-white py-4 rounded-full text-lg font-semibold hover:shadow-lg transform hover:scale-105 transition-all">
-                        🎰 룰렛으로 결정하기
-                    </button>
-                    <button onclick="backToMenuInput()" class="px-6 py-4 border-2 border-gray-300 rounded-full text-gray-700 font-semibold hover:bg-gray-50 transition-all">
-                        다시 입력
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- 4. 룰렛 화면 -->
-        <div id="rouletteScreen" class="hidden fade-in">
-            <div class="bg-white rounded-3xl shadow-2xl p-8 text-center">
-                <h2 class="text-2xl font-bold text-gray-800 mb-6">🎰 메뉴 룰렛</h2>
-                
-                <div class="relative mb-8">
-                    <div id="rouletteWheel" class="w-64 h-64 mx-auto bg-gradient-to-br from-purple-400 via-pink-500 to-red-500 rounded-full flex items-center justify-center shadow-2xl">
-                        <div id="rouletteText" class="text-white text-2xl font-bold text-center px-6">
-                            시작하기
-                        </div>
-                    </div>
-                    <div class="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-4">
-                        <div class="w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-red-600"></div>
-                    </div>
-                </div>
-
-                <button id="spinButton" onclick="spinRoulette()" class="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-4 rounded-full text-lg font-semibold hover:shadow-lg transform hover:scale-105 transition-all mb-4">
-                    룰렛 돌리기!
-                </button>
-                
-                <button onclick="showRecommendationScreen()" class="text-gray-600 hover:text-gray-800 underline">
-                    추천 화면으로 돌아가기
-                </button>
-            </div>
-        </div>
-
-        <!-- 5. 식당 리스트 화면 -->
-        <div id="restaurantScreen" class="hidden fade-in">
-            <div class="bg-white rounded-3xl shadow-2xl p-8">
-                <h2 class="text-2xl font-bold text-gray-800 mb-2 text-center">근처 식당 찾기</h2>
-                <p id="selectedMenuName" class="text-center text-gray-600 mb-6"></p>
-                
-                <!-- 카카오맵 표시 영역 -->
-                <div id="map" class="w-full h-80 rounded-xl mb-6 bg-gray-200"></div>
-                
-                <!-- 식당 리스트 -->
-                <div id="restaurantList" class="space-y-3">
-                    <!-- 식당 목록이 여기에 동적으로 추가됩니다 -->
-                </div>
-
-                <button onclick="showRecommendationScreen()" class="w-full mt-6 py-3 border-2 border-gray-300 rounded-full text-gray-700 font-semibold hover:bg-gray-50 transition-all">
-                    다른 메뉴 선택하기
-                </button>
-            </div>
-        </div>
-
-        <!-- 로딩 화면 -->
-        <div id="loadingScreen" class="hidden">
-            <div class="bg-white rounded-3xl shadow-2xl p-12 text-center">
-                <div class="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600 mx-auto mb-4"></div>
-                <p class="text-gray-700 text-xl font-semibold">AI가 메뉴를 추천하고 있어요...</p>
-            </div>
-        </div>
+      </div>
     </div>
 
-    <script>
-        // 전역 변수
-        let userLocation = { lat: 37.5665, lng: 126.9780 }; // 기본값: 서울
-        let currentMenus = [];
-        let selectedMenu = '';
-        let cafeteriaMenu = '';
-        
-        // 화면 전환 함수들
-        function showScreen(screenId) {
-            const screens = ['locationScreen', 'menuInputScreen', 'recommendationScreen', 'rouletteScreen', 'restaurantScreen', 'loadingScreen'];
-            screens.forEach(id => {
-                document.getElementById(id).classList.add('hidden');
-            });
-            document.getElementById(screenId).classList.remove('hidden');
-        }
+    <!-- 1. 위치 정보 요청 화면 -->
+    <div id="locationScreen" class="fade-in">
+      <div class="bg-white rounded-3xl shadow-2xl p-8 text-center">
+        <div class="mb-6">
+          <svg class="w-24 h-24 mx-auto text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          </svg>
+        </div>
+        <h1 class="text-3xl font-bold text-gray-800 mb-4">🍽️ 구내식당 직장인 점심 추천</h1>
+        <p class="text-gray-600 mb-8">날씨 기반 맞춤 메뉴를 추천해드립니다.<br>위치 정보를 허용해주세요.</p>
+        <button onclick="requestLocation()" class="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-4 rounded-full text-lg font-semibold hover:shadow-lg transform hover:scale-105 transition-all">
+          위치 정보 허용하기
+        </button>
+        <div id="locationError" class="mt-4 text-red-500 hidden"></div>
+      </div>
+    </div>
 
-        // 1. 위치 정보 요청
-        function requestLocation() {
-            if ("geolocation" in navigator) {
-                navigator.geolocation.getCurrentPosition(
-                    async (position) => {
-                        userLocation.lat = position.coords.latitude;
-                        userLocation.lng = position.coords.longitude;
-                        await fetchWeatherInfo();
-                        showScreen('menuInputScreen');
-                    },
-                    (error) => {
-                        document.getElementById('locationError').textContent = '위치 정보를 가져올 수 없습니다. 기본 위치(서울)를 사용합니다.';
-                        document.getElementById('locationError').classList.remove('hidden');
-                        setTimeout(() => {
-                            fetchWeatherInfo();
-                            showScreen('menuInputScreen');
-                        }, 2000);
-                    }
-                );
-            } else {
-                alert('이 브라우저는 위치 정보를 지원하지 않습니다.');
-                fetchWeatherInfo();
-                showScreen('menuInputScreen');
-            }
-        }
+    <!-- 2. 식단표 입력 화면 -->
+    <div id="menuInputScreen" class="hidden fade-in">
+      <div class="bg-white rounded-3xl shadow-2xl p-8">
+        <!-- 날씨 -->
+        <div id="weatherInfo" class="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center">
+              <span id="weatherIcon" class="text-4xl mr-3">☀️</span>
+              <div>
+                <p class="text-sm text-gray-600">현재 위치</p>
+                <p id="locationName" class="font-semibold text-gray-800">서울</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <p id="temperature" class="text-2xl font-bold text-gray-800">23°C</p>
+              <p id="weatherDesc" class="text-sm text-gray-600">맑음</p>
+            </div>
+          </div>
+        </div>
 
-        // 날씨 정보 가져오기 (실제로는 백엔드 API 호출)
-        async function fetchWeatherInfo() {
-            // 실제 구현시 백엔드 API 호출
-            // const response = await fetch(`/api/weather?lat=${userLocation.lat}&lng=${userLocation.lng}`);
-            // const data = await response.json();
-            
-            // 임시 데이터
-            const weatherData = {
-                location: '서울 강남구',
-                temperature: 23,
-                description: '맑음',
-                icon: '☀️'
-            };
-            
-            document.getElementById('locationName').textContent = weatherData.location;
-            document.getElementById('temperature').textContent = `${weatherData.temperature}°C`;
-            document.getElementById('weatherDesc').textContent = weatherData.description;
-            document.getElementById('weatherIcon').textContent = weatherData.icon;
-        }
+        <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">오늘의 구내식당 메뉴를 입력해주세요</h2>
 
-        // 2. 이미지 업로드 처리
-        const imageUploadArea = document.getElementById('imageUploadArea');
-        const menuImageInput = document.getElementById('menuImageInput');
-        const imagePreview = document.getElementById('imagePreview');
-        const previewImg = document.getElementById('previewImg');
+        <!-- 이미지 업로드 -->
+        <div class="mb-6">
+          <label class="block text-gray-700 font-semibold mb-2">📸 식단표 이미지 업로드</label>
+          <div id="imageUploadArea" class="upload-area rounded-xl p-8 text-center cursor-pointer">
+            <input type="file" id="menuImageInput" accept="image/*" class="hidden">
+            <svg class="w-16 h-16 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2z"></path>
+            </svg>
+            <p class="text-gray-600">클릭하거나 이미지를 드래그하세요</p>
+            <p class="text-sm text-gray-400 mt-2">JPG, PNG 파일 (최대 5MB)</p>
+          </div>
+          <div id="imagePreview" class="mt-4 hidden">
+            <img id="previewImg" class="rounded-xl max-h-64 mx-auto shadow-lg">
+          </div>
+          <p class="text-xs text-gray-500 mt-2">※ 현재 데모는 OCR을 수행하지 않습니다. 텍스트로 메뉴명을 함께 입력해주세요.</p>
+        </div>
 
-        imageUploadArea.addEventListener('click', () => menuImageInput.click());
+        <div class="text-center my-4 text-gray-500 font-semibold">또는</div>
 
-        imageUploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            imageUploadArea.classList.add('drag-over');
+        <!-- 텍스트 입력 + 토큰 미리보기 -->
+        <div class="mb-3">
+          <label class="block text-gray-700 font-semibold mb-2">✍️ 금일 메뉴 텍스트 입력</label>
+          <textarea id="menuTextInput" rows="4" placeholder="예: 김치찌개, 된장찌개, 불고기 덮밥" class="w-full border-2 border-gray-300 rounded-xl p-4 focus:border-purple-500 focus:outline-none"></textarea>
+        </div>
+        <div id="tokenPreview" class="hidden mb-6">
+          <div class="flex flex-wrap gap-2" id="tokenChipWrap"></div>
+        </div>
+
+        <button onclick="submitMenu()" class="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-4 rounded-full text-lg font-semibold hover:shadow-lg transform hover:scale-105 transition-all">
+          메뉴 추천받기 🎯
+        </button>
+      </div>
+    </div>
+
+    <!-- 3. AI 추천 결과 화면 -->
+    <div id="recommendationScreen" class="hidden fade-in">
+      <div class="bg-white rounded-3xl shadow-2xl p-8">
+        <h2 class="text-2xl font-bold text-gray-800 mb-2 text-center">AI가 추천하는 오늘의 메뉴</h2>
+        <p class="text-center text-gray-600 mb-6">구내식당 메뉴를 기반으로 3가지를 추천해드립니다</p>
+        <div id="recommendedMenus" class="space-y-4 mb-6"></div>
+        <div class="flex gap-4">
+          <button onclick="showRouletteScreen()" class="flex-1 bg-gradient-to-r from-yellow-400 to-orange-500 text-white py-4 rounded-full text-lg font-semibold hover:shadow-lg transform hover:scale-105 transition-all">
+            🎰 룰렛으로 결정하기
+          </button>
+          <button onclick="backToMenuInput()" class="px-6 py-4 border-2 border-gray-300 rounded-full text-gray-700 font-semibold hover:bg-gray-50 transition-all">
+            다시 입력
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. 룰렛 화면 -->
+    <div id="rouletteScreen" class="hidden fade-in">
+      <div class="bg-white rounded-3xl shadow-2xl p-8 text-center">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6">🎰 메뉴 룰렛</h2>
+        <div class="relative mb-8">
+          <div id="rouletteWheel" class="w-64 h-64 mx-auto bg-gradient-to-br from-purple-400 via-pink-500 to-red-500 rounded-full flex items-center justify-center shadow-2xl">
+            <div id="rouletteText" class="text-white text-2xl font-bold text-center px-6">시작하기</div>
+          </div>
+          <div class="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-4">
+            <div class="w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-red-600"></div>
+          </div>
+        </div>
+        <button id="spinButton" onclick="spinRoulette()" class="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-8 py-4 rounded-full text-lg font-semibold hover:shadow-lg transform hover:scale-105 transition-all mb-4">
+          룰렛 돌리기!
+        </button>
+        <button onclick="showRecommendationScreen()" class="text-gray-600 hover:text-gray-800 underline">
+          추천 화면으로 돌아가기
+        </button>
+      </div>
+    </div>
+
+    <!-- 5. 식당 리스트 화면 -->
+    <div id="restaurantScreen" class="hidden fade-in">
+      <div class="bg-white rounded-3xl shadow-2xl p-8">
+        <h2 class="text-2xl font-bold text-gray-800 mb-2 text-center">근처 식당 찾기</h2>
+        <p id="selectedMenuName" class="text-center text-gray-600 mb-6"></p>
+        <div id="map" class="w-full h-80 rounded-xl mb-6 bg-gray-200"></div>
+        <div id="restaurantList" class="space-y-3"></div>
+        <button onclick="showRecommendationScreen()" class="w-full mt-6 py-3 border-2 border-gray-300 rounded-full text-gray-700 font-semibold hover:bg-gray-50 transition-all">
+          다른 메뉴 선택하기
+        </button>
+      </div>
+    </div>
+
+    <!-- 로딩 화면 -->
+    <div id="loadingScreen" class="hidden">
+      <div class="bg-white rounded-3xl shadow-2xl p-12 text-center">
+        <div class="animate-spin rounded-full h-16 w-16 border-b-4 border-purple-600 mx-auto mb-4"></div>
+        <p class="text-gray-700 text-xl font-semibold">AI가 메뉴를 추천하고 있어요...</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===============================
+    // 전역 상태
+    // ===============================
+    let userLocation = { lat: 37.5665, lng: 126.9780 }; // 기본값: 서울
+    let currentMenus = [];
+    let selectedMenu = '';
+    let cafeteriaMenu = '';
+
+    // ===============================
+    // 유틸: 경고 배너
+    // ===============================
+    function showAlert(title, desc) {
+      const wrap = document.getElementById('globalAlert');
+      document.getElementById('alertTitle').textContent = title || '안내';
+      document.getElementById('alertDesc').textContent = desc || '';
+      wrap.classList.remove('hidden');
+      wrap.style.display = 'block';
+      try {
+        wrap.animate(
+          [{ opacity: 0, transform: 'translate(-50%,-8px)' }, { opacity: 1, transform: 'translate(-50%,0)' }],
+          { duration: 180, easing: 'ease-out' }
+        );
+      } catch(_) {}
+    }
+    function hideAlert(){
+      const wrap = document.getElementById('globalAlert');
+      wrap.classList.add('hidden');
+      wrap.style.display = 'none';
+    }
+    function goHomeFromAlert() { hideAlert(); backToMenuInput(); }
+
+    // ===============================
+    // 화면 전환
+    // ===============================
+    function showScreen(screenId) {
+      const screens = ['locationScreen','menuInputScreen','recommendationScreen','rouletteScreen','restaurantScreen','loadingScreen'];
+      screens.forEach(id => document.getElementById(id).classList.add('hidden'));
+      document.getElementById(screenId).classList.remove('hidden');
+    }
+
+    // ===============================
+    // 위치 요청
+    // ===============================
+    function requestLocation() {
+      if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(async (position) => {
+          userLocation.lat = position.coords.latitude;
+          userLocation.lng = position.coords.longitude;
+          await fetchWeatherInfo();
+          showScreen('menuInputScreen');
+        }, () => {
+          document.getElementById('locationError').textContent = '위치 정보를 가져올 수 없습니다. 기본 위치(서울)를 사용합니다.';
+          document.getElementById('locationError').classList.remove('hidden');
+          setTimeout(() => { fetchWeatherInfo(); showScreen('menuInputScreen'); }, 1200);
         });
+      } else {
+        alert('이 브라우저는 위치 정보를 지원하지 않습니다.');
+        fetchWeatherInfo();
+        showScreen('menuInputScreen');
+      }
+    }
 
-        imageUploadArea.addEventListener('dragleave', () => {
-            imageUploadArea.classList.remove('drag-over');
-        });
+    // ===============================
+    // 날씨 (데모)
+    // ===============================
+    async function fetchWeatherInfo() {
+      const weatherData = { location: '서울 강남구', temperature: 23, description: '맑음', icon: '☀️' };
+      document.getElementById('locationName').textContent = weatherData.location;
+      document.getElementById('temperature').textContent = `${weatherData.temperature}°C`;
+      document.getElementById('weatherDesc').textContent = weatherData.description;
+      document.getElementById('weatherIcon').textContent = weatherData.icon;
+    }
 
-        imageUploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            imageUploadArea.classList.remove('drag-over');
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                handleImageUpload(files[0]);
-            }
-        });
+    // ===============================
+    // 이미지 업로드
+    // ===============================
+    const imageUploadArea = document.getElementById('imageUploadArea');
+    const menuImageInput  = document.getElementById('menuImageInput');
+    const imagePreview    = document.getElementById('imagePreview');
+    const previewImg      = document.getElementById('previewImg');
 
-        menuImageInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                handleImageUpload(e.target.files[0]);
-            }
-        });
+    imageUploadArea.addEventListener('click', () => menuImageInput.click());
+    imageUploadArea.addEventListener('dragover', (e) => { e.preventDefault(); imageUploadArea.classList.add('drag-over'); });
+    imageUploadArea.addEventListener('dragleave', () => imageUploadArea.classList.remove('drag-over'));
+    imageUploadArea.addEventListener('drop', (e) => {
+      e.preventDefault(); imageUploadArea.classList.remove('drag-over');
+      const files = e.dataTransfer.files;
+      if (files.length > 0) handleImageUpload(files[0]);
+    });
+    menuImageInput.addEventListener('change', (e) => { if (e.target.files.length > 0) handleImageUpload(e.target.files[0]); });
 
-        function handleImageUpload(file) {
-            if (file.size > 5 * 1024 * 1024) {
-                alert('파일 크기는 5MB 이하여야 합니다.');
-                return;
-            }
-            
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                previewImg.src = e.target.result;
-                imagePreview.classList.remove('hidden');
-                // 텍스트 입력 비활성화
-                document.getElementById('menuTextInput').disabled = true;
-                document.getElementById('menuTextInput').classList.add('bg-gray-100');
-            };
-            reader.readAsDataURL(file);
-        }
+    function handleImageUpload(file) {
+      if (file.size > 5 * 1024 * 1024) { alert('파일 크기는 5MB 이하여야 합니다.'); return; }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        previewImg.src = e.target.result;
+        imagePreview.classList.remove('hidden');
+      };
+      reader.readAsDataURL(file);
+    }
 
-        // 3. 메뉴 제출 및 AI 추천 받기
-        async function submitMenu() {
-            const menuText = document.getElementById('menuTextInput').value;
-            const hasImage = !imagePreview.classList.contains('hidden');
-            
-            if (!menuText && !hasImage) {
-                alert('식단표 이미지를 업로드하거나 메뉴를 텍스트로 입력해주세요.');
-                return;
-            }
+    // ===============================
+    // 입력 정규화 & 유효성 검사
+    // ===============================
+    const _HANGUL_JAMO_ONLY = /^[\u3131-\u318E]+$/; // ㄱ~ㅣ (자모만)
+    const _KOR2 = /[가-힣]{2,}/;                   // 완성형 한글 2자+
+    const _ALNUM2 = /[A-Za-z0-9]{2,}/;            // 영숫자 2자+
 
-            cafeteriaMenu = menuText || '이미지로 업로드된 메뉴';
-            
-            showScreen('loadingScreen');
-            
-            // 실제 구현시 백엔드 AI API 호출
-            // const formData = new FormData();
-            // if (hasImage) formData.append('image', menuImageInput.files[0]);
-            // formData.append('menu_text', menuText);
-            // formData.append('location', JSON.stringify(userLocation));
-            // const response = await fetch('/api/recommend', { method: 'POST', body: formData });
-            // const data = await response.json();
-            
-            // 임시 데이터 (AI 응답 시뮬레이션)
-            setTimeout(() => {
-                currentMenus = [
-                    {
-                        name: '갈비탕',
-                        category: '상위호환',
-                        description: '구내식당의 김치찌개보다 깊고 진한 육수를 즐길 수 있는 프리미엄 메뉴입니다.',
-                        reason: '따뜻한 국물 요리로 비슷하지만 더 고급스러운 맛'
-                    },
-                    {
-                        name: '스시 오마카세',
-                        category: '비슷한 카테고리',
-                        description: '한식과는 다른 일식으로, 신선한 식재료의 본연의 맛을 즐길 수 있습니다.',
-                        reason: '식사의 만족도를 높일 수 있는 다른 아시아 요리'
-                    },
-                    {
-                        name: '시원한 냉파스타',
-                        category: '날씨 기반 추천',
-                        description: '맑고 따뜻한 날씨에 어울리는 상큼하고 시원한 양식 메뉴입니다.',
-                        reason: '오늘 같은 날씨에는 시원한 음식이 제격!'
-                    }
-                ];
-                
-                displayRecommendations();
-                showScreen('recommendationScreen');
-            }, 2000);
-        }
+    const FOOD_NEGATIVE = new Set([
+      "그림","사진","이미지","파일","텍스트","문장","단어","테스트",
+      "후회돼","그렇게","뭐라도","아무거나","추천","메뉴","배고파"
+    ]);
+    const FOOD_SUFFIXES = [
+      "찌개","국","탕","전골","덮밥","비빔밥","볶음밥","죽","면","라면","우동","냉면","칼국수","쌀국수","수제비","소바",
+      "구이","볶음","조림","찜","튀김","전","파스타","리조또","피자","스테이크","함박","돈까스","카츠","초밥","스시","사시미","회",
+      "동","규동","가츠동","마라탕","훠궈","짬뽕","짜장면","탕수육","유산슬","깐풍기","샐러드","포케","샌드위치","버거","토스트","빵",
+      "갈비탕","설렁탕","육개장","감자탕","해장국","곰탕"
+    ];
+    const FOOD_KEYWORDS = new Set([
+      "김치찌개","된장찌개","부대찌개","순두부찌개","갈비탕","육개장","삼계탕","감자탕","해장국","곰탕",
+      "비빔밥","제육볶음","불고기","닭갈비","카레","쭈꾸미","보쌈","족발","칼국수","콩국수","막국수",
+      "냉면","비빔냉면","평양냉면","함흥냉면","잔치국수","우동","라면","쌀국수","소바",
+      "파스타","리조또","피자","스테이크","함박스테이크","돈까스","치즈돈까스","규카츠",
+      "초밥","스시","연어덮밥","사시미","회덮밥","가츠동","규동",
+      "마라탕","마라샹궈","꿔바로우","짜장면","짬뽕","볶음밥","탕수육",
+      "떡볶이","김밥","라볶이","순대","튀김","분식","샐러드","포케","그레인볼","샌드위치","버거","토스트"
+    ]);
+    const EN_HINTS = ["pasta","pizza","steak","ramen","soba","udon","sushi","donburi","risotto","burger","sandwich","poke","salad","noodle","noodles","curry","maratang"];
 
-        // 추천 메뉴 화면에 표시
-        function displayRecommendations() {
-            const container = document.getElementById('recommendedMenus');
-            container.innerHTML = '';
-            
-            const colors = ['from-red-400 to-pink-500', 'from-blue-400 to-purple-500', 'from-green-400 to-teal-500'];
-            
-            currentMenus.forEach((menu, index) => {
-                const menuCard = document.createElement('div');
-                menuCard.className = `bg-gradient-to-r ${colors[index]} rounded-2xl p-6 cursor-pointer transform hover:scale-105 transition-all shadow-lg`;
-                menuCard.onclick = () => selectMenu(menu.name);
-                
-                menuCard.innerHTML = `
-                    <div class="flex items-start justify-between mb-2">
-                        <h3 class="text-2xl font-bold text-white">${menu.name}</h3>
-                        <span class="bg-white bg-opacity-30 text-white text-xs px-3 py-1 rounded-full">${menu.category}</span>
-                    </div>
-                    <p class="text-white text-opacity-90 mb-2">${menu.description}</p>
-                    <p class="text-white text-sm">💡 ${menu.reason}</p>
-                `;
-                
-                container.appendChild(menuCard);
-            });
-        }
+    function normalizeAndSplit(text) {
+      let t = (text || "").trim();
+      t = t.replace(/[\/\n\r;|]+/g, ",");
+      t = t.replace(/\s+/g, " ");
+      const arr = t.split(",").map(s => s.trim()).filter(Boolean);
+      return [...new Set(arr)];
+    }
+    function isFoodLike(token) {
+      const t = (token || "").trim();
+      if (FOOD_NEGATIVE.has(t)) return false;
+      if (FOOD_KEYWORDS.has(t)) return true;
+      if (FOOD_SUFFIXES.some(suf => t.endsWith(suf))) return true;
+      const low = t.toLowerCase();
+      if (EN_HINTS.some(k => low.includes(k))) return true;
+      return false;
+    }
+    function isValidMenuToken(token) {
+      const t = (token || "").trim();
+      if (!t || FOOD_NEGATIVE.has(t)) return false;
+      if (_HANGUL_JAMO_ONLY.test(t)) return false;             // ㅐ, ㅇ 등 자모만
+      if (!(_KOR2.test(t) || _ALNUM2.test(t))) return false;   // 최소 2자
+      return isFoodLike(t);
+    }
 
-        // 메뉴 선택 처리
-        function selectMenu(menuName) {
-            selectedMenu = menuName;
-            showRestaurants();
-        }
+    // 토큰 미리보기
+    const tokenPreview = document.getElementById('tokenPreview');
+    const tokenChipWrap = document.getElementById('tokenChipWrap');
+    const menuTextInput = document.getElementById('menuTextInput');
 
-        // 4. 룰렛 화면 표시
-        function showRouletteScreen() {
-            document.getElementById('rouletteText').textContent = '시작하기';
-            document.getElementById('spinButton').disabled = false;
-            showScreen('rouletteScreen');
-        }
+    function renderTokenPreview(text) {
+      const tokens = normalizeAndSplit(text);
+      if (tokens.length === 0) { tokenPreview.classList.add('hidden'); tokenChipWrap.innerHTML = ""; return; }
+      tokenPreview.classList.remove('hidden');
+      tokenChipWrap.innerHTML = "";
+      tokens.forEach(tok => {
+        const ok = isValidMenuToken(tok);
+        const span = document.createElement('span');
+        span.className = `px-3 py-1 rounded-full text-sm border ${ok ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`;
+        span.textContent = tok + (ok ? ' ✓' : ' ✕');
+        tokenChipWrap.appendChild(span);
+      });
+    }
+    menuTextInput.addEventListener('input', (e)=> renderTokenPreview(e.target.value));
 
-        function showRecommendationScreen() {
-            showScreen('recommendationScreen');
-        }
+    // ===============================
+    // 메뉴 제출
+    // ===============================
+    async function submitMenu() {
+      hideAlert();
+      const text = document.getElementById('menuTextInput').value;
+      const hasImage = !imagePreview.classList.contains('hidden');
 
-        // 룰렛 돌리기
-        function spinRoulette() {
-            const rouletteWheel = document.getElementById('rouletteWheel');
-            const rouletteText = document.getElementById('rouletteText');
-            const spinButton = document.getElementById('spinButton');
-            
-            spinButton.disabled = true;
-            rouletteWheel.classList.add('roulette-spinning');
-            
-            let count = 0;
-            const interval = setInterval(() => {
-                rouletteText.textContent = currentMenus[count % currentMenus.length].name;
-                count++;
-            }, 100);
-            
-            setTimeout(() => {
-                clearInterval(interval);
-                rouletteWheel.classList.remove('roulette-spinning');
-                
-                const finalIndex = Math.floor(Math.random() * currentMenus.length);
-                selectedMenu = currentMenus[finalIndex].name;
-                rouletteText.textContent = selectedMenu;
-                
-                setTimeout(() => {
-                    showRestaurants();
-                }, 1500);
-            }, 3000);
-        }
+      const tokens = normalizeAndSplit(text);
+      const valids = tokens.filter(isValidMenuToken);
 
-        // 5. 식당 찾기 화면 표시
-        function showRestaurants() {
-            document.getElementById('selectedMenuName').textContent = `"${selectedMenu}" 전문 식당`;
-            
-            // 카카오맵 초기화 (실제로는 카카오맵 API 필요)
-            const mapDiv = document.getElementById('map');
-            mapDiv.innerHTML = `
-                <div class="w-full h-full flex items-center justify-center text-gray-500">
-                    <div class="text-center">
-                        <p class="text-lg font-semibold mb-2">🗺️ 지도가 여기에 표시됩니다</p>
-                        <p class="text-sm">카카오맵 API를 연동하면 실제 지도가 표시됩니다</p>
-                    </div>
-                </div>
-            `;
-            
-            // 식당 리스트 표시 (실제로는 카카오맵 API로 검색)
-            const restaurantList = document.getElementById('restaurantList');
-            restaurantList.innerHTML = '';
-            
-            // 임시 데이터
-            const restaurants = [
-                { name: `${selectedMenu} 전문점`, distance: '250m', rating: 4.5, reviews: 128 },
-                { name: `맛있는 ${selectedMenu}`, distance: '380m', rating: 4.3, reviews: 95 },
-                { name: `${selectedMenu} 맛집`, distance: '520m', rating: 4.7, reviews: 203 },
-                { name: `전통 ${selectedMenu}`, distance: '650m', rating: 4.4, reviews: 156 },
-            ];
-            
-            restaurants.forEach(restaurant => {
-                const restaurantCard = document.createElement('div');
-                restaurantCard.className = 'border-2 border-gray-200 rounded-xl p-4 hover:border-purple-500 hover:shadow-md transition-all cursor-pointer';
-                
-                restaurantCard.innerHTML = `
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <h3 class="font-bold text-lg text-gray-800">${restaurant.name}</h3>
-                            <p class="text-gray-600 text-sm mt-1">📍 ${restaurant.distance} • ⭐ ${restaurant.rating} (${restaurant.reviews})</p>
-                        </div>
-                        <button class="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700">
-                            길찾기
-                        </button>
-                    </div>
-                `;
-                
-                restaurantList.appendChild(restaurantCard);
-            });
-            
-            showScreen('restaurantScreen');
-        }
+      // 이미지만 → 차단 (OCR 미구현)
+      if (tokens.length === 0 && hasImage) {
+        showAlert("이미지만으로는 분석할 수 없어요", "현재 데모는 OCR을 지원하지 않습니다. 메뉴명을 텍스트로 입력해주세요. 예: 김치찌개, 파스타, 초밥");
+        return;
+      }
+      // 토큰 있으나 모두 무효(ㅐ, ㅇ, 그림, 사진 등)
+      if (tokens.length > 0 && valids.length === 0) {
+        showAlert("메뉴 인식 불가", "입력하신 단어가 음식명으로 인식되지 않았습니다. 예: 김치찌개, 파스타, 초밥처럼 실제 음식명을 입력해주세요.");
+        return;
+      }
+      // 완전 무입력
+      if (!hasImage && valids.length === 0) {
+        showAlert("입력이 필요해요", "식단표 이미지를 업로드하거나 메뉴를 텍스트로 입력해주세요.");
+        return;
+      }
 
-        // 메뉴 입력 화면으로 돌아가기
-        function backToMenuInput() {
-            // 입력 내용 초기화
-            document.getElementById('menuTextInput').value = '';
-            document.getElementById('menuTextInput').disabled = false;
-            document.getElementById('menuTextInput').classList.remove('bg-gray-100');
-            menuImageInput.value = '';
-            imagePreview.classList.add('hidden');
-            
-            showScreen('menuInputScreen');
-        }
+      cafeteriaMenu = valids.join(", ");
+      showScreen('loadingScreen');
 
-        // 앱 시작
-        window.onload = () => {
-            showScreen('locationScreen');
-        };
-    </script>
+      // --- 실제 백엔드 호출 자리 ---
+      // const res = await fetch('/api/recommend', { ... });
+      // const data = await res.json();
+      // if (data.need_more_info) { showAlert(...); showScreen('menuInputScreen'); return; }
+      // currentMenus = transform(data.recommendations);
+
+      // 데모 결과
+      setTimeout(() => {
+        currentMenus = [
+          { name: '갈비탕', category: '상위호환', description: '진한 육수와 담백한 고기가 든든합니다.', reason: '따뜻한 국물 + 영양 밸런스' },
+          { name: '초밥', category: '대체', description: '신선한 재료로 깔끔하게 즐길 수 있습니다.', reason: '담백한 맛 + 적당한 포만감' },
+          { name: '냉면', category: '예외', description: '시원한 육수로 상쾌하게 즐기는 별미입니다.', reason: '시원한 메뉴 + 가벼운 식사' }
+        ];
+        displayRecommendations();
+        showScreen('recommendationScreen');
+      }, 800);
+    }
+
+    // ===============================
+    // 추천 표시
+    // ===============================
+    function displayRecommendations() {
+      const container = document.getElementById('recommendedMenus');
+      container.innerHTML = '';
+      const colors = ['from-red-400 to-pink-500', 'from-blue-400 to-purple-500', 'from-green-400 to-teal-500'];
+      currentMenus.forEach((menu, idx) => {
+        const card = document.createElement('div');
+        card.className = `bg-gradient-to-r ${colors[idx % colors.length]} rounded-2xl p-6 cursor-pointer transform hover:scale-105 transition-all shadow-lg`;
+        card.onclick = () => selectMenu(menu.name);
+        card.innerHTML = `
+          <div class="flex items-start justify-between mb-2">
+            <h3 class="text-2xl font-bold text-white">${menu.name}</h3>
+            <span class="bg-white bg-opacity-30 text-white text-xs px-3 py-1 rounded-full">${menu.category}</span>
+          </div>
+          <p class="text-white text-opacity-90 mb-2">${menu.description}</p>
+          <p class="text-white text-sm">💡 ${menu.reason}</p>
+        `;
+        container.appendChild(card);
+      });
+    }
+    function selectMenu(menuName) { selectedMenu = menuName; showRestaurants(); }
+
+    // ===============================
+    // 룰렛
+    // ===============================
+    function showRouletteScreen() {
+      document.getElementById('rouletteText').textContent = '시작하기';
+      document.getElementById('spinButton').disabled = false;
+      showScreen('rouletteScreen');
+    }
+    function showRecommendationScreen(){ showScreen('recommendationScreen'); }
+    function spinRoulette() {
+      const wheel = document.getElementById('rouletteWheel');
+      const text = document.getElementById('rouletteText');
+      const btn = document.getElementById('spinButton');
+      btn.disabled = true;
+      wheel.classList.add('roulette-spinning');
+      let count = 0;
+      const itv = setInterval(()=> {
+        text.textContent = currentMenus[count % currentMenus.length].name;
+        count++;
+      }, 100);
+      setTimeout(()=> {
+        clearInterval(itv); wheel.classList.remove('roulette-spinning');
+        const finalIndex = Math.floor(Math.random() * currentMenus.length);
+        selectedMenu = currentMenus[finalIndex].name;
+        text.textContent = selectedMenu;
+        setTimeout(showRestaurants, 1200);
+      }, 2000);
+    }
+
+    // ===============================
+    // 식당 리스트 (데모)
+    // ===============================
+    function showRestaurants() {
+      document.getElementById('selectedMenuName').textContent = `"${selectedMenu}" 전문 식당`;
+      const mapDiv = document.getElementById('map');
+      mapDiv.innerHTML = `
+        <div class="w-full h-full flex items-center justify-center text-gray-500">
+          <div class="text-center">
+            <p class="text-lg font-semibold mb-2">🗺️ 지도가 여기에 표시됩니다</p>
+            <p class="text-sm">카카오맵 API를 연동하면 실제 지도가 표시됩니다</p>
+          </div>
+        </div>
+      `;
+      const list = document.getElementById('restaurantList');
+      list.innerHTML = '';
+      const restaurants = [
+        { name: `${selectedMenu} 전문점`, distance: '250m', rating: 4.5, reviews: 128 },
+        { name: `맛있는 ${selectedMenu}`, distance: '380m', rating: 4.3, reviews: 95 },
+        { name: `${selectedMenu} 맛집`, distance: '520m', rating: 4.7, reviews: 203 },
+        { name: `전통 ${selectedMenu}`, distance: '650m', rating: 4.4, reviews: 156 },
+      ];
+      restaurants.forEach(r => {
+        const el = document.createElement('div');
+        el.className = 'border-2 border-gray-200 rounded-xl p-4 hover:border-purple-500 hover:shadow-md transition-all cursor-pointer';
+        el.innerHTML = `
+          <div class="flex justify-between items-start">
+            <div>
+              <h3 class="font-bold text-lg text-gray-800">${r.name}</h3>
+              <p class="text-gray-600 text-sm mt-1">📍 ${r.distance} • ⭐ ${r.rating} (${r.reviews})</p>
+            </div>
+            <button class="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700">길찾기</button>
+          </div>
+        `;
+        list.appendChild(el);
+      });
+      showScreen('restaurantScreen');
+    }
+
+    // ===============================
+    // 뒤로가기
+    // ===============================
+    function backToMenuInput() {
+      hideAlert();
+      document.getElementById('menuTextInput').value = '';
+      tokenPreview.classList.add('hidden');
+      tokenChipWrap.innerHTML = '';
+      menuImageInput.value = '';
+      imagePreview.classList.add('hidden');
+      showScreen('menuInputScreen');
+    }
+
+    // 앱 시작
+    window.onload = () => { showScreen('locationScreen'); };
+  </script>
 </body>
 </html>
-
-

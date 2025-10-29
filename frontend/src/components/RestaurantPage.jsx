@@ -250,7 +250,7 @@ const RestaurantPage = ({ menuName, weather, location, onBack }) => {
             </div>
             <div>
               <div className="text-[13px] text-slate-500">현재 위치</div>
-              <div className="font-semibold">{location || weather.location}</div>
+              <div className="font-semibold text-sm">{location || weather.location || '서울시'}</div>
             </div>
           </div>
           <div className="chip rounded-xl px-3 py-1.5 text-sm font-medium text-slate-700 mt-2">

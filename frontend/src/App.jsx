@@ -3,14 +3,18 @@ import CafeteriaInput from './components/CafeteriaInput';
 import CafeteriaResult from './components/CafeteriaResult';
 import RouletteGame from './components/RouletteGame';
 import RestaurantPage from './components/RestaurantPage';
+import AlertBanner from './components/AlertBanner';
 import { weatherAPI, cafeteriaAPI } from './services/api';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('landing'); // landing, location, input, result, roulette, restaurant
-  const [location, setLocation] = useState('서울');
+  const [location, setLocation] = useState('위치 확인 중...');
   const [userCoords, setUserCoords] = useState(null);
   const [weather, setWeather] = useState(null);
   const [cafeteriaMenu, setCafeteriaMenu] = useState('');
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertDesc, setAlertDesc] = useState('');
   const [recommendation, setRecommendation] = useState(null);
   const [selectedMenu, setSelectedMenu] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -57,6 +61,21 @@ function App() {
     console.log('✅ 테마 적용 완료:', theme);
   };
 
+  const showAlert = ({ title, desc }) => {
+    setAlertTitle(title || '안내');
+    setAlertDesc(desc || '');
+    setAlertOpen(true);
+  };
+  const closeAlert = () => setAlertOpen(false);
+
+  const goHome = () => {
+    setAlertOpen(false);
+    setRecommendation(null);
+    setSelectedMenu(null);
+    setCafeteriaMenu('');
+    setCurrentPage('input');
+  };
+
   const fetchBackgroundPhoto = async (weatherCondition, temperature) => {
     try {
       console.log('📸 배경 사진 요청:', weatherCondition, temperature);
@@ -83,53 +102,54 @@ function App() {
     }
   };
 
-  // 🆕 좌표를 주소로 변환하는 함수
-  const getAddressFromCoords = (lat, lng) => {
-    return new Promise((resolve, reject) => {
-      // 카카오 API 로드 대기
-      if (!window.kakao || !window.kakao.maps || !window.kakao.maps.services) {
-        console.warn('⏳ 카카오맵 API 로딩 대기 중...');
-        // 500ms 후 재시도
-        setTimeout(() => {
-          if (!window.kakao || !window.kakao.maps || !window.kakao.maps.services) {
-            reject(new Error('카카오맵 API가 로드되지 않았습니다'));
-          } else {
-            getAddressFromCoords(lat, lng).then(resolve).catch(reject);
-          }
-        }, 500);
-        return;
-      }
-
-      const geocoder = new window.kakao.maps.services.Geocoder();
-      
-      geocoder.coord2Address(lng, lat, (result, status) => {
-        if (status === window.kakao.maps.services.Status.OK) {
-          if (result[0].address) {
-            const addr = result[0].address;
-            // 시/도 + 구/군 조합 (예: "서울 강남구", "경기도 성남시")
-            const location = addr.region_2depth_name 
-              ? `${addr.region_1depth_name} ${addr.region_2depth_name}`
-              : addr.region_1depth_name;
-            console.log('✅ 역지오코딩 성공:', location, addr);
-            resolve(location);
-          } else {
-            reject(new Error('주소 정보 없음'));
-          }
-        } else {
-          reject(new Error('역지오코딩 실패'));
-        }
-      });
-    });
-  };
-
   // 시작하기 버튼 클릭
   const handleStart = async () => {
     setCurrentPage('location');
     
-    // 위치 권한 요청 전에 먼저 기본 위치로 날씨 로드
-    await fetchWeather('서울');
-    
+    // 위치 권한 요청 (날씨는 위치 확인 후 로드)
     requestLocation();
+  };
+
+  // 카카오 API로 좌표를 주소로 변환
+  const getAddressFromCoords = async (latitude, longitude) => {
+    try {
+      const KAKAO_API_KEY = 'ef42433f3c101ffeb3d1bae45a775180'; // 기본 키 (사용자가 교체 가능)
+      const response = await fetch(
+        `https://dapi.kakao.com/v2/local/geo/coord2address.json?x=${longitude}&y=${latitude}`,
+        {
+          headers: {
+            'Authorization': `KakaoAK ${KAKAO_API_KEY}`
+          }
+        }
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('📍 카카오 주소 변환 결과:', data);
+        
+        if (data.documents && data.documents.length > 0) {
+          const address = data.documents[0].address;
+          const roadAddress = data.documents[0].road_address;
+          
+          // 우선순위: 도로명 주소 > 지번 주소
+          if (roadAddress) {
+            // 예: 서울특별시 강남구
+            const city = roadAddress.region_1depth_name.replace('특별시', '시').replace('광역시', '시');
+            const district = roadAddress.region_2depth_name;
+            return district ? `${city} ${district}` : city;
+          } else if (address) {
+            // 예: 서울특별시 강남구
+            const city = address.region_1depth_name.replace('특별시', '시').replace('광역시', '시');
+            const district = address.region_2depth_name;
+            return district ? `${city} ${district}` : city;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ 주소 변환 실패:', error);
+    }
+    
+    return '서울시'; // 기본값
   };
 
   const requestLocation = () => {
@@ -143,28 +163,20 @@ function App() {
           setUserCoords(coords);
           setLocationPermission('granted');
           
-          console.log('📍 GPS 좌표:', coords);
+          // 카카오 API로 주소 변환
+          const addressName = await getAddressFromCoords(coords.latitude, coords.longitude);
+          console.log('✅ 변환된 주소:', addressName);
           
-          // 🆕 좌표를 주소로 변환
-          try {
-            const address = await getAddressFromCoords(coords.latitude, coords.longitude);
-            console.log('📍 변환된 주소:', address);
-            setLocation(address);
-            await fetchWeather(address);
-          } catch (error) {
-            console.error('❌ 주소 변환 실패, 기본값(서울) 사용:', error);
-            setLocation('서울');
-            await fetchWeather('서울');
-          }
-          
+          setLocation(addressName);
+          await fetchWeather(addressName, coords);
           setCurrentPage('input');
         },
         async (error) => {
           console.warn('위치 정보 접근 거부:', error);
           setLocationPermission('denied');
           
-          setLocation('서울');
-          await fetchWeather('서울');
+          setLocation('서울시');
+          await fetchWeather('서울시');
           
           setTimeout(() => {
             setCurrentPage('input');
@@ -178,17 +190,17 @@ function App() {
       );
     } else {
       setLocationPermission('denied');
-      setLocation('서울');
-      fetchWeather('서울');
+      setLocation('서울시');
+      fetchWeather('서울시');
       setTimeout(() => {
         setCurrentPage('input');
       }, 3000);
     }
   };
 
-  const fetchWeather = async (loc) => {
+  const fetchWeather = async (loc, coords = null) => {
     try {
-      const response = await weatherAPI.getWeather(loc);
+      const response = await weatherAPI.getWeather(loc, coords);
       console.log('날씨 API 응답:', response.data);
       setWeather(response.data);
       
@@ -340,6 +352,7 @@ function App() {
 
   return (
     <div className="min-h-screen">
+       <AlertBanner open={alertOpen} title={alertTitle} desc={alertDesc} onHome={goHome} onClose={closeAlert} />
       {/* 에러 메시지 */}
       {error && (
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 glass border border-red-200 text-red-800 px-6 py-3 rounded-lg shadow-lg z-50">
@@ -354,6 +367,8 @@ function App() {
           onSubmit={handleMenuInput}
           weather={weather}
           location={location}
+          onShowAlert={showAlert}      // NEW
+          onResetToInput={goHome}
         />
       )}
 
@@ -387,7 +402,11 @@ function App() {
         />
       )}
     </div>
+
+    
   );
+
+  
 }
 
 export default App;
