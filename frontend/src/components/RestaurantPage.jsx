@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
-const RestaurantPage = ({ menuName, weather, location, onBack }) => {
+const RestaurantPage = ({ menuName, weather, location, userCoords, onBack }) => {
   const [isMapLoaded, setIsMapLoaded] = useState(false);
   const [error, setError] = useState(null);
 
@@ -69,60 +69,28 @@ const RestaurantPage = ({ menuName, weather, location, onBack }) => {
     }
 
     try {
-      // 기본 좌표 (서울)
-      let defaultLat = 37.5665;
-      let defaultLng = 126.9780;
+      // 기본 좌표 (서울) 또는 고정 좌표
+      const fallback = { lat: 37.5665, lng: 126.9780 };
+      const base = (userCoords && userCoords.latitude && userCoords.longitude)
+        ? { lat: userCoords.latitude, lng: userCoords.longitude }
+        : fallback;
 
-      const options = {
-        center: new window.kakao.maps.LatLng(defaultLat, defaultLng),
-        level: 4 // 조금 더 넓은 범위
-      };
-
-      const map = new window.kakao.maps.Map(container, options);
+      const map = new window.kakao.maps.Map(container, {
+        center: new window.kakao.maps.LatLng(base.lat, base.lng),
+        level: 4
+      });
       console.log('✅ 지도 생성 성공');
-      
-      // 사용자 현재 위치 가져오기
-      if (navigator.geolocation) {
-        console.log('📍 현재 위치 가져오는 중...');
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const lat = position.coords.latitude;
-            const lng = position.coords.longitude;
-            console.log(`✅ 현재 위치: ${lat}, ${lng}`);
-            
-            const locPosition = new window.kakao.maps.LatLng(lat, lng);
-            map.setCenter(locPosition);
-            
-            // 현재 위치 마커 표시
-            const currentMarker = new window.kakao.maps.Marker({
-              position: locPosition,
-              map: map
-            });
-            
-            const infowindow = new window.kakao.maps.InfoWindow({
-              content: '<div style="padding:5px;font-size:12px;color:#4F46E5;">📍 현재 위치</div>'
-            });
-            infowindow.open(map, currentMarker);
-            
-            // 현재 위치 기준으로 음식점 검색
-            searchPlaces(map, lat, lng);
-          },
-          (error) => {
-            console.warn('⚠️ 위치 정보를 가져올 수 없습니다:', error.message);
-            console.log('📍 기본 위치(서울)로 검색합니다');
-            // 위치 권한이 없으면 서울 중심으로 검색
-            searchPlaces(map, defaultLat, defaultLng);
-          },
-          {
-            enableHighAccuracy: true,
-            timeout: 5000,
-            maximumAge: 0
-          }
-        );
-      } else {
-        console.warn('⚠️ 브라우저가 위치 정보를 지원하지 않습니다');
-        searchPlaces(map, defaultLat, defaultLng);
-      }
+
+      // 선택한 위치(고정) 마커
+      const startPos = new window.kakao.maps.LatLng(base.lat, base.lng);
+      const startMarker = new window.kakao.maps.Marker({ position: startPos, map });
+      const startInfo = new window.kakao.maps.InfoWindow({
+        content: '<div style="padding:5px;font-size:12px;color:#1F2937;">📍 선택한 위치</div>'
+      });
+      startInfo.open(map, startMarker);
+
+      // 고정 좌표 기준으로 음식점 검색
+      searchPlaces(map, base.lat, base.lng);
       
     } catch (error) {
       console.error('❌ 지도 초기화 중 오류:', error);

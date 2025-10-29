@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ManualLocationSelector from './components/ManualLocationSelector';
 import CafeteriaInput from './components/CafeteriaInput';
 import CafeteriaResult from './components/CafeteriaResult';
 import RouletteGame from './components/RouletteGame';
@@ -85,9 +86,16 @@ function App() {
 
   // 시작하기 버튼 클릭
   const handleStart = async () => {
+    // 수동 설정이 이미 있으면 바로 진행
+    if (userCoords && location && location !== '위치 확인 중...') {
+      if (!weather) {
+        await fetchWeather(location, userCoords);
+      }
+      setCurrentPage('input');
+      return;
+    }
     setCurrentPage('location');
-    
-    // 위치 권한 요청 (날씨는 위치 확인 후 로드)
+    // 자동 위치 권한 플로우 실행
     requestLocation();
   };
 
@@ -245,7 +253,7 @@ function App() {
   // Landing 화면
   if (currentPage === 'landing') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center relative">
         <div className="glass rounded-3xl p-10 md:p-14 shadow-2xl">
           <div className="mx-auto max-w-2xl text-center">
             <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500 to-amber-400 shadow-lg">
@@ -265,6 +273,17 @@ function App() {
               <span>시작하기</span>
             </button>
           </div>
+        </div>
+        <div className="absolute right-4 bottom-4">
+          <ManualLocationSelector
+            onResolved={async ({ lat, lng, address, name }) => {
+              const coords = { latitude: lat, longitude: lng };
+              setUserCoords(coords);
+              const addr = address || name || '서울시';
+              setLocation(addr);
+              await fetchWeather(addr, coords);
+            }}
+          />
         </div>
       </div>
     );
@@ -288,7 +307,7 @@ function App() {
     );
   }
 
-  // 위치 권한 요청 화면
+  // 위치 권한 요청 화면 (원복)
   if (currentPage === 'location') {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -297,7 +316,6 @@ function App() {
           <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-800 mb-3">
             위치 정보 접근
           </h1>
-          
           {locationPermission === 'pending' && (
             <>
               <p className="text-slate-600 mb-6">
@@ -311,7 +329,6 @@ function App() {
               </div>
             </>
           )}
-          
           {locationPermission === 'denied' && (
             <>
               <p className="text-slate-600 mb-4">
@@ -376,6 +393,7 @@ function App() {
           menuName={selectedMenu}
           weather={weather}
           location={location}
+          userCoords={userCoords}
           onBack={handleBackToResult}
         />
       )}
