@@ -5,6 +5,7 @@ import CafeteriaResult from './components/CafeteriaResult';
 import RouletteGame from './components/RouletteGame';
 import RestaurantPage from './components/RestaurantPage';
 import DailyRecommendations from './components/DailyRecommendations';
+import AlertBanner from './components/AlertBanner';
 import { weatherAPI, cafeteriaAPI } from './services/api';
 
 function App() {
@@ -19,6 +20,9 @@ function App() {
   const [error, setError] = useState(null);
   const [locationPermission, setLocationPermission] = useState('pending'); // pending, granted, denied
   const [backgroundPhoto, setBackgroundPhoto] = useState(null);
+  const [alertOpen, setAlertOpen] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertDesc, setAlertDesc] = useState('');
 
   // 초기 테마 설정
   useEffect(() => {
@@ -61,26 +65,37 @@ function App() {
 
   const fetchBackgroundPhoto = async (weatherCondition, temperature) => {
     try {
-      console.log('📸 배경 사진 요청:', weatherCondition, temperature);
-      const response = await fetch(
-        `http://localhost:8000/api/weather-photo?weather_condition=${encodeURIComponent(weatherCondition)}&temperature=${temperature || ''}`
-      );
-      const data = await response.json();
+      console.log('📸 배경 이미지 설정:', weatherCondition, temperature);
       
-      if (data.success && data.data.success && data.data.photo_url) {
-        console.log('✅ 배경 사진 가져오기 성공');
-        setBackgroundPhoto(data.data.photo_url);
-        document.body.style.backgroundImage = `url(${data.data.photo_url})`;
-        document.body.style.backgroundSize = 'cover';
-        document.body.style.backgroundPosition = 'center';
-        document.body.style.backgroundRepeat = 'no-repeat';
-        document.body.style.backgroundAttachment = 'fixed';
-      } else {
-        console.log('⚠️ 배경 사진 없음, 테마 그라데이션 사용');
-        document.body.style.backgroundImage = 'none';
+      // 날씨 조건에 따른 로컬 이미지 선택
+      let imageName = 'sunny.png'; // 기본값
+      
+      const condition = (weatherCondition || '').toLowerCase();
+      if (condition.includes('맑')) {
+        const sunnyImages = ['sunny.png', 'sunny2.jpg', 'sunny3.png'];
+        imageName = sunnyImages[Math.floor(Math.random() * sunnyImages.length)];
+      } else if (condition.includes('구름') || condition.includes('흐림')) {
+        const cloudyImages = ['cloudy.png', 'cloudy2.jpg', 'cloudy3.png'];
+        imageName = cloudyImages[Math.floor(Math.random() * cloudyImages.length)];
+      } else if (condition.includes('비')) {
+        const rainyImages = ['rainy.png', 'rainy2.jpg', 'rainy3.png'];
+        imageName = rainyImages[Math.floor(Math.random() * rainyImages.length)];
+      } else if (condition.includes('눈')) {
+        const snowyImages = ['snowy.png', 'snowy2.jpg', 'snowy3.png'];
+        imageName = snowyImages[Math.floor(Math.random() * snowyImages.length)];
       }
+      
+      const imageUrl = `/images/weather/${imageName}`;
+      console.log('✅ 배경 이미지 적용:', imageUrl);
+      
+      setBackgroundPhoto(imageUrl);
+      document.body.style.backgroundImage = `url(${imageUrl})`;
+      document.body.style.backgroundSize = 'cover';
+      document.body.style.backgroundPosition = 'center';
+      document.body.style.backgroundRepeat = 'no-repeat';
+      document.body.style.backgroundAttachment = 'fixed';
     } catch (error) {
-      console.error('❌ 배경 사진 가져오기 실패:', error);
+      console.error('❌ 배경 이미지 설정 실패:', error);
       document.body.style.backgroundImage = 'none';
     }
   };
@@ -217,6 +232,18 @@ function App() {
         userCoords
       );
       
+      // 검증 실패 응답 처리
+      if (response.data.need_more_info && response.data.missing) {
+        const missing = response.data.missing[0] || '';
+        if (missing.includes('valid_food_name')) {
+          setAlertTitle('메뉴 인식 불가');
+          setAlertDesc(response.data.brief_rationale || '입력하신 단어가 음식명으로 인식되지 않았습니다. 예: 김치찌개, 파스타, 초밥처럼 실제 음식명을 입력해주세요.');
+          setAlertOpen(true);
+          setLoading(false);
+          return;
+        }
+      }
+      
       setRecommendation(response.data);
       setCurrentPage('result');
     } catch (err) {
@@ -351,6 +378,14 @@ function App() {
 
   return (
     <div className="min-h-screen">
+      {/* Alert Banner */}
+      <AlertBanner
+        open={alertOpen}
+        title={alertTitle}
+        desc={alertDesc}
+        onClose={() => setAlertOpen(false)}
+      />
+
       {/* 에러 메시지 */}
       {error && (
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 glass border border-red-200 text-red-800 px-6 py-3 rounded-lg shadow-lg z-50">
@@ -367,6 +402,11 @@ function App() {
           {currentPage === 'input' && (
             <CafeteriaInput
               onSubmit={handleMenuInput}
+              onValidationError={(title, desc) => {
+                setAlertTitle(title);
+                setAlertDesc(desc);
+                setAlertOpen(true);
+              }}
               weather={weather}
               location={location}
             />

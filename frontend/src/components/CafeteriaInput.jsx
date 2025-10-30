@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import { validateMenuTokens } from '../utils/menuValidation';
 
-const CafeteriaInput = ({ onSubmit, weather, location }) => {
+const CafeteriaInput = ({ onSubmit, onValidationError, weather, location }) => {
   const [menuText, setMenuText] = useState('');
   const [menuList, setMenuList] = useState([]);
   const [imageFile, setImageFile] = useState(null);
@@ -63,6 +64,18 @@ const CafeteriaInput = ({ onSubmit, weather, location }) => {
 
   // 제출
   const handleRecommend = () => {
+    // 프론트엔드 검증
+    const validation = validateMenuTokens(menuText, !!imageFile);
+    
+    if (!validation.ok) {
+      // 검증 실패 시 Alert 표시
+      if (onValidationError) {
+        onValidationError(validation.title, validation.desc);
+      }
+      return;
+    }
+    
+    // 검증 성공 시 제출
     if (menuText.trim()) {
       onSubmit({ method: 'text', content: menuText });
     }
