@@ -15,6 +15,7 @@ export default function ManualLocationSelector({ onResolved }) {
   const [districtOptions, setDistrictOptions] = useState([]);
   const [loadingDistricts, setLoadingDistricts] = useState(false);
   const placesRef = useRef(null);
+  const [placesReady, setPlacesReady] = useState(false);
 
   // 카카오 Places 서비스 준비
   useEffect(() => {
@@ -29,12 +30,13 @@ export default function ManualLocationSelector({ onResolved }) {
     (async () => {
       await waitKakao();
       placesRef.current = new window.kakao.maps.services.Places();
+      setPlacesReady(true);
     })();
   }, []);
 
   // 시/도 변경 시 구/군 목록 로드 (구청 검색으로 유추)
   useEffect(() => {
-    if (!placesRef.current || !city) return;
+    if (!placesReady || !placesRef.current || !city) return;
     setLoadingDistricts(true);
     setDistrict('');
     const query = `${city} 구청`;
@@ -59,7 +61,7 @@ export default function ManualLocationSelector({ onResolved }) {
       const arr = Array.from(set).sort();
       setDistrictOptions(arr);
     });
-  }, [city]);
+  }, [city, placesReady]);
 
   const prefix = useMemo(() => {
     const parts = [country, city, district].filter(Boolean);
