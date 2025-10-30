@@ -202,94 +202,99 @@ const RestaurantPage = ({ menuName, weather, location, userCoords, onBack }) => 
   };
 
   return (
-    <div className="min-h-screen px-4 py-8">
-      {/* 상단 날씨 정보 */}
-      {weather && (
-        <div className="absolute top-4 left-4 glass rounded-xl shadow-lg p-4 z-10">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-yellow-300/80 flex items-center justify-center">
-              <span className="text-xl">
-                {weather.sky_condition === '맑음' ? '☀️' : 
-                 weather.sky_condition === '구름많음' ? '⛅' : 
-                 weather.sky_condition === '흐림' ? '☁️' : 
-                 weather.sky_condition === '비' ? '🌧️' : 
-                 weather.sky_condition === '눈' ? '❄️' : '🌤️'}
-              </span>
+    <div className="min-h-screen px-3 sm:px-4 py-4 sm:py-8">
+      {/* 상단 날씨 정보와 뒤로가기 버튼 */}
+      <div className="max-w-6xl mx-auto mb-4 sm:mb-6">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <button
+            onClick={onBack}
+            className="glass rounded-lg sm:rounded-xl px-3 sm:px-4 py-1.5 sm:py-2 hover:bg-white/90 text-sm sm:text-base flex-shrink-0"
+          >
+            ← 뒤로
+          </button>
+          
+          {weather && (
+            <div className="glass rounded-lg sm:rounded-xl shadow-lg p-2 sm:p-3 flex-shrink min-w-0">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="h-7 w-7 sm:h-9 sm:w-9 rounded-lg sm:rounded-xl bg-yellow-300/80 flex items-center justify-center flex-shrink-0">
+                  <span className="text-base sm:text-xl">
+                    {weather.sky_condition === '맑음' ? '☀️' : 
+                     weather.sky_condition === '구름많음' ? '⛅' : 
+                     weather.sky_condition === '흐림' ? '☁️' : 
+                     weather.sky_condition === '비' ? '🌧️' : 
+                     weather.sky_condition === '눈' ? '❄️' : '🌤️'}
+                  </span>
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[11px] sm:text-[13px] text-slate-500">현재 위치</div>
+                  <div className="font-semibold text-xs sm:text-sm truncate">{location || weather.location}</div>
+                </div>
+                <div className="chip rounded-lg sm:rounded-xl px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium text-slate-700 flex-shrink-0">
+                  {weather.temperature}°C
+                </div>
+              </div>
             </div>
-            <div>
-              <div className="text-[13px] text-slate-500">현재 위치</div>
-              <div className="font-semibold">{location || weather.location}</div>
-            </div>
-          </div>
-          <div className="chip rounded-xl px-3 py-1.5 text-sm font-medium text-slate-700 mt-2">
-            {weather.temperature}°C
-          </div>
+          )}
         </div>
-      )}
+      </div>
 
       <div className="max-w-6xl mx-auto">
-        <button
-          onClick={onBack}
-          className="glass rounded-xl px-4 py-2 mb-4 hover:bg-white/90"
-        >
-          ← 뒤로가기
-        </button>
 
-        <div className="glass rounded-3xl shadow-2xl overflow-hidden">
+        <div className="glass rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden">
           {/* 헤더 */}
-          <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-6 md:p-8">
-            <h2 className="text-3xl md:text-4xl font-bold mb-2">🗺️ {menuName} 맛집 찾기</h2>
-            <p className="opacity-90 text-lg">주변의 {menuName} 음식점을 찾아보세요</p>
+          <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-4 sm:p-6 md:p-8">
+            <h2 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold mb-1 sm:mb-2 break-keep">🗺️ {menuName} 맛집 찾기</h2>
+            <p className="opacity-90 text-sm sm:text-base md:text-lg break-keep">주변의 {menuName} 음식점을 찾아보세요</p>
           </div>
 
           {/* 지도 */}
           <div className="relative">
             {error ? (
-              <div className="h-96 flex items-center justify-center bg-base-200">
-                <div className="text-center p-8">
-                  <div className="alert alert-error max-w-md mx-auto">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              <div className="h-64 sm:h-80 md:h-96 flex items-center justify-center bg-base-200">
+                <div className="text-center p-4 sm:p-8">
+                  <div className="alert alert-error max-w-md mx-auto text-xs sm:text-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-5 w-5 sm:h-6 sm:w-6" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     <div>
                       <p className="font-bold">{error}</p>
-                      <p className="text-sm">카카오맵 API 키를 확인해주세요</p>
+                      <p className="text-xs sm:text-sm">카카오맵 API 키를 확인해주세요</p>
                     </div>
                   </div>
                 </div>
               </div>
             ) : !isMapLoaded ? (
-              <div className="h-96 flex items-center justify-center bg-base-200">
+              <div className="h-64 sm:h-80 md:h-96 flex items-center justify-center bg-base-200">
                 <div className="text-center">
-                  <span className="loading loading-spinner loading-lg text-primary"></span>
-                  <p className="mt-4">지도를 불러오는 중...</p>
+                  <span className="loading loading-spinner loading-md sm:loading-lg text-primary"></span>
+                  <p className="mt-4 text-sm sm:text-base">지도를 불러오는 중...</p>
                 </div>
               </div>
             ) : (
-              <div id="map" className="w-full h-96"></div>
+              <div id="map" className="w-full h-64 sm:h-80 md:h-96"></div>
             )}
           </div>
 
           {/* 안내 메시지 */}
-          <div className="p-6 bg-white/50">
-            <div className="glass rounded-xl p-4 mb-4">
-              <div className="flex items-start gap-3">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6 text-blue-500"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                <span className="text-sm"><strong>📍 현재 위치 기반:</strong> 주변 2km 반경 내 음식점을 표시합니다.</span>
+          <div className="p-4 sm:p-6 bg-white/50">
+            <div className="glass rounded-lg sm:rounded-xl p-3 sm:p-4 mb-3 sm:mb-4">
+              <div className="flex items-start gap-2 sm:gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-5 h-5 sm:w-6 sm:h-6 text-blue-500 flex-shrink-0"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span className="text-xs sm:text-sm"><strong>📍 현재 위치 기반:</strong> 주변 2km 반경 내 음식점을 표시합니다.</span>
               </div>
             </div>
             
-            <div className="glass rounded-xl p-4">
-              <div className="flex items-start gap-3">
-                <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                <span className="text-sm"><strong>💡 Tip:</strong> 마커를 클릭하면 상세 정보(주소, 전화번호)를 확인할 수 있습니다.</span>
+            <div className="glass rounded-lg sm:rounded-xl p-3 sm:p-4">
+              <div className="flex items-start gap-2 sm:gap-3">
+                <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-5 w-5 sm:h-6 sm:w-6 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <span className="text-xs sm:text-sm"><strong>💡 Tip:</strong> 마커를 클릭하면 상세 정보(주소, 전화번호)를 확인할 수 있습니다.</span>
               </div>
             </div>
           </div>
 
           {/* 다시 검색 버튼 */}
-          <div className="p-6">
+          <div className="p-4 sm:p-6">
             <button
               onClick={onBack}
-              className="btn-primary rounded-xl w-full py-4 text-lg font-semibold"
+              className="btn-primary rounded-xl w-full py-3 sm:py-4 text-base sm:text-lg font-semibold"
             >
               다른 메뉴 추천받기 🔄
             </button>
