@@ -764,84 +764,6 @@ class AIService:
         return prompt
 
     # =======================================================================
-    # 8) 레시피 생성
-    # =======================================================================
-    async def generate_recipe(
-        self,
-        menu_name: str,
-        num_servings: int = 1
-    ) -> Dict:
-        """레시피 생성"""
-        if not self.use_ai:
-            return self._get_fallback_recipe(menu_name, num_servings)
-
-        try:
-            prompt = f"""
-'{menu_name}' 메뉴의 {num_servings}인분 레시피를 작성해주세요.
-
-다음 형식으로 JSON 응답해주세요:
-{{
-    "menu_name": "메뉴명",
-    "servings": {num_servings},
-    "ingredients": [
-        {{"name": "재료명", "amount": "양"}}
-    ],
-    "steps": [
-        "1단계 설명",
-        "2단계 설명"
-    ],
-    "cooking_time": "조리 시간",
-    "difficulty": "쉬움/보통/어려움"
-}}
-"""
-
-            response = self.model.generate_content(prompt)
-            content = response.text
-
-            if "```json" in content:
-                content = content.split("```json")[1].split("```")[0].strip()
-            elif "```" in content:
-                content = content.split("```")[1].split("```")[0].strip()
-
-            try:
-                recipe = json.loads(content)
-                return recipe
-            except json.JSONDecodeError:
-                return self._get_fallback_recipe(menu_name, num_servings)
-
-        except Exception as e:
-            print("레시피 생성 오류:", str(e))
-            return self._get_fallback_recipe(menu_name, num_servings)
-
-    def _get_fallback_recipe(
-        self,
-        menu_name: str,
-        num_servings: int
-    ) -> Dict:
-        """기본 레시피"""
-        return {
-            "menu_name": menu_name,
-            "servings": num_servings,
-            "ingredients": [
-                {"name": "주재료", "amount": f"{num_servings * 200}g"},
-                {"name": "양파", "amount": f"{num_servings}개"},
-                {"name": "마늘", "amount": f"{num_servings * 3}쪽"},
-                {"name": "간장", "amount": f"{num_servings * 2}큰술"},
-                {"name": "식용유", "amount": f"{num_servings}큰술"},
-            ],
-            "steps": [
-                "재료를 깨끗이 씻어 준비합니다.",
-                "양파와 마늘을 적당한 크기로 썰어줍니다.",
-                "팬에 식용유를 두르고 마늘을 볶아 향을 냅니다.",
-                "주재료를 넣고 중불에서 볶아줍니다.",
-                "간장으로 간을 맞추고 완성합니다.",
-            ],
-            "cooking_time": "약 30분",
-            "difficulty": "보통",
-            "note": "AI API 연동 시 더 상세한 레시피가 제공됩니다."
-        }
-
-    # =======================================================================
     # 9) 규칙 기반 추천 (fallback)
     # =======================================================================
     def _get_smart_recommendation(
@@ -974,7 +896,6 @@ class AIService:
             selected = {
                 "name": "비빔밥",
                 "category": "한식",
-                "spicy": "보통",
                 "reason": "영양 균형이 잡힌 건강식입니다"
             }
 
