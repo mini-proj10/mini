@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { dailyRecommendationsAPI } from '../services/api';
 
-const DailyRecommendations = ({ location, userCoords, weather, onRecommendationsUpdate }) => {
+const DailyRecommendations = ({ location, userCoords, weather, onRecommendationsUpdate, onMenuClick }) => {
   const [recommendations, setRecommendations] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -37,10 +37,11 @@ const DailyRecommendations = ({ location, userCoords, weather, onRecommendations
     }
   };
 
-  const handleMenuClick = (menuName) => {
-    // 카카오맵으로 주변 음식점 검색 (키워드만 사용, 현재 위치 기반)
-    const kakaoMapUrl = `https://map.kakao.com/link/search/${encodeURIComponent(menuName)}`;
-    window.open(kakaoMapUrl, '_blank');
+  const handleMenuClick = (menu) => {
+    // 부모 컴포넌트로 메뉴 클릭 이벤트 전달
+    if (onMenuClick) {
+      onMenuClick(menu);
+    }
   };
 
   if (loading) {
@@ -101,7 +102,7 @@ const DailyRecommendations = ({ location, userCoords, weather, onRecommendations
         {recommendations.recommendations.map((menu, index) => (
           <div
             key={index}
-            onClick={() => handleMenuClick(menu.menu_name)}
+            onClick={() => handleMenuClick(menu)}
             className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-2.5 sm:p-3.5 border-l-4 border-blue-500 hover:shadow-md hover:scale-[1.02] transition-all duration-200 cursor-pointer group"
           >
             <div className="flex items-start gap-2 sm:gap-2.5">

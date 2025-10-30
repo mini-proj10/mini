@@ -288,6 +288,23 @@ function App() {
     setCurrentPage('result');
   };
 
+  // 오늘의 메뉴 클릭 핸들러
+  const handleDailyMenuClick = (menu) => {
+    // 메뉴를 선택하고 RestaurantPage로 이동
+    const menuData = {
+      menu_name: menu.menu_name,
+      menu: menu.menu_name,
+      display_name: menu.menu_name,
+      restaurant_name: menu.restaurant_name,
+      distance: menu.distance,
+      price_range: menu.price_range,
+      type: '오늘의 메뉴',
+      reason: menu.reason
+    };
+    setSelectedMenu(menuData);
+    setCurrentPage('restaurant');
+  };
+
   // Landing 화면
   if (currentPage === 'landing') {
     return (
@@ -472,6 +489,7 @@ function App() {
                 userCoords={userCoords}
                 weather={weather}
                 onRecommendationsUpdate={setDailyRecommendations}
+                onMenuClick={handleDailyMenuClick}
               />
             </aside>
           )}
