@@ -6,7 +6,7 @@ import RouletteGame from './components/RouletteGame';
 import RestaurantPage from './components/RestaurantPage';
 import DailyRecommendations from './components/DailyRecommendations';
 import AlertBanner from './components/AlertBanner';
-import { weatherAPI, cafeteriaAPI } from './services/api';
+import { weatherAPI, cafeteriaAPI, dailyRecommendationsAPI } from './services/api';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('landing'); // landing, location, input, result, roulette, restaurant
@@ -25,6 +25,7 @@ function App() {
   const [alertDesc, setAlertDesc] = useState('');
   const [dailyRecommendations, setDailyRecommendations] = useState(null);
   const [includeDaily, setIncludeDaily] = useState(false);
+  const [previousPage, setPreviousPage] = useState('landing'); // 이전 페이지 추적
 
   // 초기 테마 설정
   useEffect(() => {
@@ -74,16 +75,16 @@ function App() {
       
       const condition = (weatherCondition || '').toLowerCase();
       if (condition.includes('맑')) {
-        const sunnyImages = ['sunny.png', 'sunny2.jpg', 'sunny3.png'];
+        const sunnyImages = ['sunny.png', 'sunny2.jpg', 'sunny3.png', 'sunny4.png', 'sunny5.png'];
         imageName = sunnyImages[Math.floor(Math.random() * sunnyImages.length)];
       } else if (condition.includes('구름') || condition.includes('흐림')) {
-        const cloudyImages = ['cloudy.png', 'cloudy2.jpg', 'cloudy3.png'];
+        const cloudyImages = ['cloudy.png', 'cloudy2.jpg', 'cloudy3.png', 'cloudy4.png', 'cloudy5.png'];
         imageName = cloudyImages[Math.floor(Math.random() * cloudyImages.length)];
       } else if (condition.includes('비')) {
-        const rainyImages = ['rainy.png', 'rainy2.jpg', 'rainy3.png'];
+        const rainyImages = ['rainy.png', 'rainy2.jpg', 'rainy3.png', 'rainy4.png', 'rainy5.png'];
         imageName = rainyImages[Math.floor(Math.random() * rainyImages.length)];
       } else if (condition.includes('눈')) {
-        const snowyImages = ['snowy.png', 'snowy2.jpg', 'snowy3.png'];
+        const snowyImages = ['snowy.png', 'snowy2.jpg', 'snowy3.png', 'snowy4.png', 'snowy5.png'];
         imageName = snowyImages[Math.floor(Math.random() * snowyImages.length)];
       }
       
@@ -228,10 +229,15 @@ function App() {
     setCafeteriaMenu(input.content);
 
     try {
+      // 오늘의 메뉴를 전달 (중복 체크용)
+      const dailyMenusForCheck = dailyRecommendations?.recommendations || null;
+      
       const response = await cafeteriaAPI.getRecommendation(
         location,
         input.content,
-        userCoords
+        userCoords,
+        true,  // preferExternal
+        dailyMenusForCheck  // 오늘의 메뉴 전달
       );
       
       // 검증 실패 응답 처리
@@ -247,6 +253,23 @@ function App() {
       }
       
       setRecommendation(response.data);
+      
+      // 구내식당 메뉴 입력 후 오늘의 메뉴를 구내식당 메뉴와 연관 낮은 메뉴로 재생성
+      try {
+        const refreshedDailyMenus = await dailyRecommendationsAPI.refreshDailyRecommendations(
+          location,
+          input.content,
+          userCoords
+        );
+        if (refreshedDailyMenus.success) {
+          setDailyRecommendations(refreshedDailyMenus.data);
+          console.log('✅ 오늘의 메뉴 재생성 완료:', refreshedDailyMenus.data);
+        }
+      } catch (refreshErr) {
+        console.error('오늘의 메뉴 재생성 실패 (기존 메뉴 유지):', refreshErr);
+        // 재생성 실패해도 기존 메뉴 유지하고 계속 진행
+      }
+      
       setCurrentPage('result');
     } catch (err) {
       setError('추천을 가져오는데 실패했습니다.');
@@ -258,6 +281,7 @@ function App() {
 
   const handleSelectMenu = (menuName) => {
     setSelectedMenu(menuName);
+    setPreviousPage(currentPage); // 현재 페이지를 이전 페이지로 저장
     setCurrentPage('restaurant');
   };
 
@@ -268,6 +292,7 @@ function App() {
 
   const handleRouletteResult = (menuName) => {
     setSelectedMenu(menuName);
+    setPreviousPage('roulette'); // 룰렛에서 왔음을 표시
     setCurrentPage('restaurant');
   };
 
@@ -288,6 +313,19 @@ function App() {
     setCurrentPage('result');
   };
 
+  // RestaurantPage에서 뒤로가기 핸들러
+  const handleBackFromRestaurant = () => {
+    // 이전 페이지가 result나 roulette이면 해당 페이지로, 아니면 input으로
+    if (previousPage === 'result') {
+      setCurrentPage('result');
+    } else if (previousPage === 'roulette') {
+      setCurrentPage('roulette');
+    } else {
+      // 오늘의 메뉴에서 바로 온 경우 (landing, input 등)
+      setCurrentPage('input');
+    }
+  };
+
   // 오늘의 메뉴 클릭 핸들러
   const handleDailyMenuClick = (menu) => {
     // 메뉴를 선택하고 RestaurantPage로 이동
@@ -302,7 +340,29 @@ function App() {
       reason: menu.reason
     };
     setSelectedMenu(menuData);
+    setPreviousPage(currentPage); // 현재 페이지를 이전 페이지로 저장
     setCurrentPage('restaurant');
+  };
+
+  // 오늘의 메뉴 룰렛 핸들러
+  const handleDailyMenuRoulette = (dailyMenus) => {
+    // 오늘의 메뉴를 AI 추천 형식으로 변환
+    const formattedMenus = dailyMenus.map(menu => ({
+      menu_name: menu.menu_name,
+      type: '오늘의 메뉴',
+      reason: menu.reason,
+      price_range: menu.price_range
+    }));
+    
+    // recommendation 상태 설정 (RouletteGame에서 사용)
+    setRecommendation({
+      recommendations: formattedMenus,
+      cafeteria_menu: '오늘의 추천 메뉴'
+    });
+    
+    setIncludeDaily(false); // 오늘의 메뉴만 사용
+    setPreviousPage(currentPage);
+    setCurrentPage('roulette');
   };
 
   // Landing 화면
@@ -472,7 +532,7 @@ function App() {
                 weather={weather}
                 location={location}
                 userCoords={userCoords}
-                onBack={handleBackToResult}
+                onBack={handleBackFromRestaurant}
               />
             )}
           </div>
@@ -490,6 +550,7 @@ function App() {
                 weather={weather}
                 onRecommendationsUpdate={setDailyRecommendations}
                 onMenuClick={handleDailyMenuClick}
+                onRouletteClick={handleDailyMenuRoulette}
               />
             </aside>
           )}

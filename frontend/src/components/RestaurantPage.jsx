@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import html2canvas from 'html2canvas';
 
 const RestaurantPage = ({ menuName, weather, location, userCoords, onBack }) => {
   const [isMapLoaded, setIsMapLoaded] = useState(false);
@@ -7,6 +8,7 @@ const RestaurantPage = ({ menuName, weather, location, userCoords, onBack }) => 
   const [sortBy, setSortBy] = useState('distance'); // 'distance' or 'review'
   const [mapInstance, setMapInstance] = useState(null);
   const [markers, setMarkers] = useState([]); // 마커와 InfoWindow를 저장
+  const restaurantInfoRef = useRef(null); // 음식점 정보 캡처용 ref
 
   // menuName이 객체인 경우 문자열로 변환
   const getMenuNameString = () => {
@@ -158,6 +160,70 @@ const RestaurantPage = ({ menuName, weather, location, userCoords, onBack }) => 
           markerData.isOpen = true;
         }
       }
+    }
+  };
+
+  // 음식점 정보 이미지로 저장하기
+  const saveAsImage = async () => {
+    if (!restaurantInfoRef.current) {
+      alert('저장할 내용이 없습니다.');
+      return;
+    }
+    
+    try {
+      // oklch 색상 문제를 피하기 위해 임시로 배경색 변경
+      const originalBg = restaurantInfoRef.current.style.backgroundColor;
+      const originalBackdrop = restaurantInfoRef.current.style.backdropFilter;
+      
+      restaurantInfoRef.current.style.backgroundColor = 'rgba(255, 255, 255, 0.95)';
+      restaurantInfoRef.current.style.backdropFilter = 'none';
+      
+      const canvas = await html2canvas(restaurantInfoRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        logging: false,
+        useCORS: true,
+        allowTaint: true,
+        foreignObjectRendering: false,
+        imageTimeout: 0,
+        ignoreElements: (element) => {
+          // 카카오맵 관련 요소는 캡처에서 제외 (지도는 canvas로 렌더링되어 자동 캡처됨)
+          return element.classList?.contains('kakao-map-ignore') || false;
+        },
+        onclone: (clonedDoc) => {
+          // 클론된 문서의 모든 glass 클래스를 일반 배경으로 변경
+          const glassElements = clonedDoc.querySelectorAll('.glass');
+          glassElements.forEach(el => {
+            el.style.backgroundColor = 'rgba(255, 255, 255, 0.95)';
+            el.style.backdropFilter = 'none';
+          });
+        },
+      });
+      
+      // 원래 스타일 복원
+      restaurantInfoRef.current.style.backgroundColor = originalBg;
+      restaurantInfoRef.current.style.backdropFilter = originalBackdrop;
+      
+      // Canvas를 Blob으로 변환
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          alert('이미지 생성에 실패했습니다.');
+          return;
+        }
+        
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const fileName = `음식점정보_${menuNameStr.replace(/[\\/:*?"<>|]/g, '_')}_${Date.now()}.png`;
+        link.download = fileName;
+        link.href = url;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 'image/png');
+    } catch (error) {
+      console.error('이미지 저장 실패:', error);
+      alert(`이미지 저장에 실패했습니다: ${error.message}`);
     }
   };
 
@@ -351,17 +417,27 @@ const RestaurantPage = ({ menuName, weather, location, userCoords, onBack }) => 
             {/* 헤더 박스 */}
             <div className="w-full pb-4">
               <div className="glass rounded-xl shadow-lg p-4 sm:p-5">
-                <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-1">
-                  🗺️ {menuNameStr} 맛집 찾기
-                </h1>
-                <p className="text-slate-600 text-sm sm:text-base">
-                  주변 2km 반경 내 음식점 {restaurants.length}곳
-                </p>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-1">
+                      🗺️ {menuNameStr} 맛집 찾기
+                    </h1>
+                    <p className="text-slate-600 text-sm sm:text-base">
+                      주변 2km 반경 내 음식점 {restaurants.length}곳
+                    </p>
+                  </div>
+                  <button
+                    onClick={saveAsImage}
+                    className="glass rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 hover:bg-green-50 text-xs sm:text-sm font-semibold transition-all flex-shrink-0 bg-green-50 hover:bg-green-100"
+                  >
+                    📸 저장
+                  </button>
+                </div>
               </div>
             </div>
 
             {/* 지도 + 음식점 리스트 통합 박스 */}
-            <div className="glass rounded-xl shadow-lg overflow-hidden">
+            <div ref={restaurantInfoRef} className="glass rounded-xl shadow-lg overflow-hidden">
               <div className="flex flex-col lg:flex-row">
                 {/* 지도 (60%) */}
                 <div className="w-full lg:w-[60%] border-r border-slate-200/50 p-3">

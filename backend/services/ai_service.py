@@ -132,7 +132,8 @@ class AIService:
         weather: Dict,
         cafeteria_menu: str,
         location: Optional[Dict] = None,
-        prefer_external: bool = True
+        prefer_external: bool = True,
+        daily_menus: Optional[list] = None
     ) -> Dict:
         """
         고급 프롬프트 시스템으로 구내식당 메뉴 기반 추천
@@ -155,6 +156,14 @@ class AIService:
                 for r in self.last_recommendations
                 if r.get("restaurant_name") or r.get("menu_name")
             ]
+            
+            # ✅ 오늘의 추천 메뉴도 avoid_list에 추가
+            if daily_menus:
+                for menu in daily_menus:
+                    avoid_list.append({
+                        "restaurant_name": menu.get("restaurant_name"),
+                        "menu_name": menu.get("menu_name")
+                    })
 
             user_input = {
                 "menuToday": (
@@ -195,9 +204,14 @@ class AIService:
 
 추가 규칙:
 - 입력의 avoidList에 있는 (restaurant_name, menu_name) 조합은
-  이번 추천에서 가능하면 제외하세요.
+  이번 추천에서 **반드시 제외**하세요.
+- **중요**: avoidList에 있는 메뉴와 **의미적으로 유사하거나 같은 카테고리**의 메뉴도 제외하세요.
+  예: avoidList에 "김치찌개"가 있으면 "된장찌개", "순두부찌개" 등도 제외
+  예: avoidList에 "돈까스"가 있으면 "치즈돈까스", "생선까스" 등도 제외
+  예: avoidList에 "파스타"가 있으면 "크림파스타", "토마토파스타" 등도 제외
 - 상위호환 1개, 대체 1개, 예외 1개를 우선 생성하되
   조건에 맞는 게 없으면 있는 것만 내보내세요.
+- 다양한 카테고리의 메뉴를 추천하세요 (한식, 중식, 일식, 양식 등을 골고루).
 
 출력 형식 (반드시 이 스키마를 따르세요):
 {{
@@ -1073,7 +1087,7 @@ class AIService:
         weather: Dict,
         location: str
     ) -> Dict:
-        """오늘의 추천 메뉴 3개 생성 (위치 & 날씨 기반)"""
+        """오늘의 추천 메뉴 3개 생성 (위치 & 날씨 기반, 실제 검색 가능한 메뉴만)"""
         if not self.use_ai:
             return self._get_fallback_daily_recommendations(weather, location)
 
@@ -1090,29 +1104,34 @@ class AIService:
 - 강수량: {weather.get('precipitation', 0)}mm
 - 습도: {weather.get('humidity')}%
 
-**요구사항:**
+**매우 중요한 요구사항:**
 1. 현재 날씨와 온도에 최적화된 메뉴 3개를 추천하세요.
 2. 각 메뉴는 서로 다른 카테고리(한식, 중식, 양식, 일식 등)에서 선택하세요.
-3. 각 추천마다 1-2문장으로 이유를 설명하세요 (날씨, 영양, 맛 고려).
-4. 대략적인 가격대도 함께 제시하세요.
+3. **메뉴명은 카카오맵에서 실제 검색 가능한 단순한 키워드로 작성하세요.**
+   - ✅ 좋은 예: "해물 칼국수", "김치찌개", "돈까스", "파스타", "짬뽕"
+   - ❌ 나쁜 예: "따뜻한 해물 칼국수", "매콤한 김치찌개", "바삭한 돈까스"
+   - 형용사를 빼고 음식명의 핵심 키워드만 사용하세요.
+4. 일반적으로 많은 음식점에서 제공하는 대중적인 메뉴를 선택하세요.
+5. 각 추천마다 1-2문장으로 이유를 설명하세요 (날씨, 영양, 맛 고려).
+6. 대략적인 가격대도 함께 제시하세요.
 
 **출력 형식 (JSON만):**
 {{
   "recommendations": [
     {{
-      "menu_name": "메뉴명",
+      "menu_name": "메뉴명 (검색 가능한 단순 키워드)",
       "category": "카테고리",
       "price_range": "가격대",
       "reason": "추천 이유 (1-2문장)"
     }},
     {{
-      "menu_name": "메뉴명",
+      "menu_name": "메뉴명 (검색 가능한 단순 키워드)",
       "category": "카테고리", 
       "price_range": "가격대",
       "reason": "추천 이유 (1-2문장)"
     }},
     {{
-      "menu_name": "메뉴명",
+      "menu_name": "메뉴명 (검색 가능한 단순 키워드)",
       "category": "카테고리",
       "price_range": "가격대",
       "reason": "추천 이유 (1-2문장)"
@@ -1121,7 +1140,9 @@ class AIService:
   "summary": "오늘의 날씨 한줄 요약"
 }}
 
-**주의:** 유효한 JSON만 출력하세요. 코드블록, 추가 텍스트, 이모지 금지.
+**주의:** 
+- 유효한 JSON만 출력하세요. 코드블록, 추가 텍스트, 이모지 금지.
+- 메뉴명은 반드시 형용사 없이 음식 이름만 사용하세요.
 """
 
             response = daily_model.generate_content(prompt)
@@ -1159,6 +1180,112 @@ class AIService:
 
         except Exception as e:
             print("❌ 오늘의 추천 메뉴 생성 오류:", e)
+            return self._get_fallback_daily_recommendations(weather, location)
+
+    async def get_daily_recommendations_with_exclusion(
+        self,
+        weather: Dict,
+        location: str,
+        cafeteria_menu: str
+    ) -> Dict:
+        """구내식당 메뉴와 연관성이 낮은 오늘의 추천 메뉴 생성"""
+        if not self.use_ai:
+            return self._get_fallback_daily_recommendations(weather, location)
+
+        try:
+            daily_model = genai.GenerativeModel('gemini-2.0-flash-exp')
+
+            prompt = f"""
+오늘의 점심 메뉴 3가지를 추천해주세요.
+
+**위치:** {location}
+**날씨 정보:**
+- 온도: {weather.get('temperature')}°C
+- 날씨: {weather.get('sky_condition')}
+- 강수량: {weather.get('precipitation', 0)}mm
+- 습도: {weather.get('humidity')}%
+
+**구내식당 메뉴:** {cafeteria_menu}
+
+**매우 중요한 요구사항:**
+1. 현재 날씨와 온도에 최적화된 메뉴 3개를 추천하세요.
+2. **구내식당 메뉴와 의미적으로 연관성이 낮은 메뉴를 선택하세요.**
+   - 구내식당이 "김치찌개, 제육볶음"이면 → "파스타", "초밥", "쌀국수" 같이 다른 카테고리 추천
+   - 구내식당이 "돈까스, 카레"이면 → "짬뽕", "비빔밥", "샐러드" 같이 다른 스타일 추천
+3. 각 메뉴는 서로 다른 카테고리(한식, 중식, 양식, 일식 등)에서 선택하세요.
+4. **메뉴명은 카카오맵에서 실제 검색 가능한 단순한 키워드로 작성하세요.**
+   - ✅ 좋은 예: "해물 칼국수", "김치찌개", "돈까스", "파스타", "짬뽕"
+   - ❌ 나쁜 예: "따뜻한 해물 칼국수", "매콤한 김치찌개", "바삭한 돈까스"
+5. 일반적으로 많은 음식점에서 제공하는 대중적인 메뉴를 선택하세요.
+6. 각 추천마다 1-2문장으로 이유를 설명하세요 (날씨, 영양, 맛 고려).
+7. 대략적인 가격대도 함께 제시하세요.
+
+**출력 형식 (JSON만):**
+{{
+  "recommendations": [
+    {{
+      "menu_name": "메뉴명 (검색 가능한 단순 키워드)",
+      "category": "카테고리",
+      "price_range": "가격대",
+      "reason": "추천 이유 (1-2문장)"
+    }},
+    {{
+      "menu_name": "메뉴명 (검색 가능한 단순 키워드)",
+      "category": "카테고리", 
+      "price_range": "가격대",
+      "reason": "추천 이유 (1-2문장)"
+    }},
+    {{
+      "menu_name": "메뉴명 (검색 가능한 단순 키워드)",
+      "category": "카테고리",
+      "price_range": "가격대",
+      "reason": "추천 이유 (1-2문장)"
+    }}
+  ],
+  "summary": "오늘의 날씨 한줄 요약"
+}}
+
+**주의:** 
+- 유효한 JSON만 출력하세요. 코드블록, 추가 텍스트, 이모지 금지.
+- 메뉴명은 반드시 형용사 없이 음식 이름만 사용하세요.
+- 구내식당 메뉴와 유사한 카테고리는 피하세요.
+"""
+
+            response = daily_model.generate_content(prompt)
+            response_text = response.text.strip()
+
+            if '```json' in response_text:
+                response_text = (
+                    response_text.split('```json')[1]
+                    .split('```')[0]
+                    .strip()
+                )
+            elif '```' in response_text:
+                response_text = (
+                    response_text.split('```')[1]
+                    .split('```')[0]
+                    .strip()
+                )
+
+            result = json.loads(response_text)
+
+            result['weather'] = {
+                'location': location,
+                'temperature': weather.get('temperature'),
+                'condition': weather.get('sky_condition'),
+                'precipitation': weather.get('precipitation', 0)
+            }
+
+            print(
+                "✅ 오늘의 추천 메뉴 재생성 완료 (구내식당 메뉴 제외):",
+                len(result.get('recommendations', [])),
+                "개"
+            )
+
+            return result
+
+        except Exception as e:
+            print("❌ 오늘의 추천 메뉴 재생성 오류:", e)
             return self._get_fallback_daily_recommendations(weather, location)
 
     def _get_fallback_daily_recommendations(

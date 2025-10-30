@@ -1,9 +1,11 @@
 import React, { useState, useRef } from 'react';
+import html2canvas from 'html2canvas';
 
 const RouletteGame = ({ menus, dailyRecommendations, includeDaily, weather, location, onResult, onBack }) => {
   const [isSpinning, setIsSpinning] = useState(false);
   const [rotation, setRotation] = useState(0);
   const [result, setResult] = useState(null);
+  const resultRef = useRef(null); // 결과 화면 캡처용 ref
 
   // 룰렛에 사용할 메뉴 리스트 생성
   const getRouletteMenus = () => {
@@ -58,6 +60,66 @@ const RouletteGame = ({ menus, dailyRecommendations, includeDaily, weather, loca
     'bg-indigo-500',
     'bg-orange-500'
   ];
+
+  // 결과 이미지로 저장하기
+  const saveAsImage = async () => {
+    if (!resultRef.current) {
+      alert('저장할 내용이 없습니다.');
+      return;
+    }
+    
+    try {
+      // oklch 색상 문제를 피하기 위해 임시로 배경색 변경
+      const originalBg = resultRef.current.style.backgroundColor;
+      const originalBackdrop = resultRef.current.style.backdropFilter;
+      
+      resultRef.current.style.backgroundColor = 'rgba(255, 255, 255, 0.95)';
+      resultRef.current.style.backdropFilter = 'none';
+      
+      const canvas = await html2canvas(resultRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        logging: false,
+        useCORS: true,
+        allowTaint: true,
+        foreignObjectRendering: false,
+        imageTimeout: 0,
+        onclone: (clonedDoc) => {
+          // 클론된 문서의 모든 glass 클래스를 일반 배경으로 변경
+          const glassElements = clonedDoc.querySelectorAll('.glass');
+          glassElements.forEach(el => {
+            el.style.backgroundColor = 'rgba(255, 255, 255, 0.95)';
+            el.style.backdropFilter = 'none';
+          });
+        },
+      });
+      
+      // 원래 스타일 복원
+      resultRef.current.style.backgroundColor = originalBg;
+      resultRef.current.style.backdropFilter = originalBackdrop;
+      
+      // Canvas를 Blob으로 변환
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          alert('이미지 생성에 실패했습니다.');
+          return;
+        }
+        
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const fileName = `룰렛결과_${(result?.menu_name || '메뉴').replace(/[\\/:*?"<>|]/g, '_')}_${Date.now()}.png`;
+        link.download = fileName;
+        link.href = url;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 'image/png');
+    } catch (error) {
+      console.error('이미지 저장 실패:', error);
+      alert(`이미지 저장에 실패했습니다: ${error.message}`);
+    }
+  };
 
   return (
     <div className="min-h-screen">
@@ -203,7 +265,7 @@ const RouletteGame = ({ menus, dailyRecommendations, includeDaily, weather, loca
                 </button>
               </div>
             ) : (
-              <div className="glass rounded-xl shadow-lg p-4 sm:p-6 mb-4">
+              <div ref={resultRef} className="glass rounded-xl shadow-lg p-4 sm:p-6 mb-4">
                 <div className="text-center">
                   <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">🎉</div>
                   <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-2 sm:mb-3">
@@ -228,6 +290,12 @@ const RouletteGame = ({ menus, dailyRecommendations, includeDaily, weather, loca
                     {result.reason}
                   </p>
                   <div className="flex flex-col sm:flex-row justify-center gap-3 mt-4 sm:mt-6">
+                    <button
+                      onClick={saveAsImage}
+                      className="glass rounded-xl px-5 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base font-semibold hover:bg-white/90 w-full sm:w-auto bg-green-50 hover:bg-green-100"
+                    >
+                      📸 이미지로 저장
+                    </button>
                     <button
                       onClick={spin}
                       className="glass rounded-xl px-5 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base font-semibold hover:bg-white/90 w-full sm:w-auto"

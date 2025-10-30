@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { dailyRecommendationsAPI } from '../services/api';
 
-const DailyRecommendations = ({ location, userCoords, weather, onRecommendationsUpdate, onMenuClick }) => {
+const DailyRecommendations = ({ location, userCoords, weather, onRecommendationsUpdate, onMenuClick, onRouletteClick }) => {
   const [recommendations, setRecommendations] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedMenu, setSelectedMenu] = useState(null);
 
   useEffect(() => {
-    fetchDailyRecommendations();
-  }, [location, userCoords]);
+    // 한 번만 로드 (location, userCoords 의존성 제거)
+    if (!recommendations) {
+      fetchDailyRecommendations();
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchDailyRecommendations = async () => {
     try {
@@ -148,6 +151,18 @@ const DailyRecommendations = ({ location, userCoords, weather, onRecommendations
               🌡️ {recommendations.weather.temperature}°C
             </span>
           </div>
+        </div>
+      )}
+
+      {/* 룰렛 버튼 */}
+      {onRouletteClick && recommendations.recommendations && recommendations.recommendations.length > 0 && (
+        <div className="mt-3 sm:mt-4 pt-2 sm:pt-3 border-t border-gray-200">
+          <button
+            onClick={() => onRouletteClick(recommendations.recommendations)}
+            className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-2 sm:py-2.5 px-4 rounded-lg transition-all shadow-md hover:shadow-lg text-xs sm:text-sm"
+          >
+            🎰 오늘의 메뉴로 룰렛 돌리기
+          </button>
         </div>
       )}
     </div>
