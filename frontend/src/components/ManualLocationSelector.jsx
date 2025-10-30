@@ -148,4 +148,3 @@ export default function ManualLocationSelector({ onResolved, weather, location }
   );
 }
 
-
