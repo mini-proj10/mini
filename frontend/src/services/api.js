@@ -38,12 +38,13 @@ export const recipeAPI = {
 };
 
 export const cafeteriaAPI = {
-  getRecommendation: async (location, cafeteriaMenu, userLocation = null, preferExternal = true) => {
+  getRecommendation: async (location, cafeteriaMenu, userLocation = null, preferExternal = true, dailyMenus = null) => {
     const response = await api.post('/api/recommend-from-cafeteria', {
       location,
       cafeteria_menu: cafeteriaMenu,
       user_location: userLocation,
-      prefer_external: preferExternal  // CAM 모드 활성화
+      prefer_external: preferExternal,  // CAM 모드 활성화
+      daily_menus: dailyMenus  // 오늘의 메뉴 전달
     });
     return response.data;
   },
@@ -56,6 +57,14 @@ export const dailyRecommendationsAPI = {
       url += `&lat=${coords.latitude}&lng=${coords.longitude}`;
     }
     const response = await api.get(url);
+    return response.data;
+  },
+  refreshDailyRecommendations: async (location, cafeteriaMenu, userLocation = null) => {
+    const response = await api.post('/api/daily-recommendations-refresh', {
+      location,
+      cafeteria_menu: cafeteriaMenu,
+      user_location: userLocation
+    });
     return response.data;
   },
 };

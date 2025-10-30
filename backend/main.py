@@ -168,7 +168,7 @@ async def get_weather_photo(weather_condition: str, temperature: Optional[float]
             }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
+        
 @app.get("/api/daily-recommendations")
 async def get_daily_recommendations(location: str = "서울", lat: Optional[float] = None, lng: Optional[float] = None):
     """오늘의 추천 메뉴 3개 조회 (위치 & 날씨 기반)"""

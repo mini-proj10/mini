@@ -6,7 +6,7 @@ import RouletteGame from './components/RouletteGame';
 import RestaurantPage from './components/RestaurantPage';
 import DailyRecommendations from './components/DailyRecommendations';
 import AlertBanner from './components/AlertBanner';
-import { weatherAPI, cafeteriaAPI } from './services/api';
+import { weatherAPI, cafeteriaAPI, dailyRecommendationsAPI } from './services/api';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('landing'); // landing, location, input, result, roulette, restaurant
@@ -23,6 +23,9 @@ function App() {
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertTitle, setAlertTitle] = useState('');
   const [alertDesc, setAlertDesc] = useState('');
+  const [dailyRecommendations, setDailyRecommendations] = useState(null);
+  const [includeDaily, setIncludeDaily] = useState(false);
+  const [previousPage, setPreviousPage] = useState('landing'); // 이전 페이지 추적
 
   // 초기 테마 설정
   useEffect(() => {
@@ -72,16 +75,16 @@ function App() {
       
       const condition = (weatherCondition || '').toLowerCase();
       if (condition.includes('맑')) {
-        const sunnyImages = ['sunny.png', 'sunny2.jpg', 'sunny3.png'];
+        const sunnyImages = ['sunny.png', 'sunny2.jpg', 'sunny3.png', 'sunny4.png', 'sunny5.png'];
         imageName = sunnyImages[Math.floor(Math.random() * sunnyImages.length)];
       } else if (condition.includes('구름') || condition.includes('흐림')) {
-        const cloudyImages = ['cloudy.png', 'cloudy2.jpg', 'cloudy3.png'];
+        const cloudyImages = ['cloudy.png', 'cloudy2.jpg', 'cloudy3.png', 'cloudy4.png', 'cloudy5.png'];
         imageName = cloudyImages[Math.floor(Math.random() * cloudyImages.length)];
       } else if (condition.includes('비')) {
-        const rainyImages = ['rainy.png', 'rainy2.jpg', 'rainy3.png'];
+        const rainyImages = ['rainy.png', 'rainy2.jpg', 'rainy3.png', 'rainy4.png', 'rainy5.png'];
         imageName = rainyImages[Math.floor(Math.random() * rainyImages.length)];
       } else if (condition.includes('눈')) {
-        const snowyImages = ['snowy.png', 'snowy2.jpg', 'snowy3.png'];
+        const snowyImages = ['snowy.png', 'snowy2.jpg', 'snowy3.png', 'snowy4.png', 'snowy5.png'];
         imageName = snowyImages[Math.floor(Math.random() * snowyImages.length)];
       }
       
@@ -226,10 +229,15 @@ function App() {
     setCafeteriaMenu(input.content);
 
     try {
+      // 오늘의 메뉴를 전달 (중복 체크용)
+      const dailyMenusForCheck = dailyRecommendations?.recommendations || null;
+      
       const response = await cafeteriaAPI.getRecommendation(
         location,
         input.content,
-        userCoords
+        userCoords,
+        true,  // preferExternal
+        dailyMenusForCheck  // 오늘의 메뉴 전달
       );
       
       // 검증 실패 응답 처리
@@ -245,6 +253,23 @@ function App() {
       }
       
       setRecommendation(response.data);
+      
+      // 구내식당 메뉴 입력 후 오늘의 메뉴를 구내식당 메뉴와 연관 낮은 메뉴로 재생성
+      try {
+        const refreshedDailyMenus = await dailyRecommendationsAPI.refreshDailyRecommendations(
+          location,
+          input.content,
+          userCoords
+        );
+        if (refreshedDailyMenus.success) {
+          setDailyRecommendations(refreshedDailyMenus.data);
+          console.log('✅ 오늘의 메뉴 재생성 완료:', refreshedDailyMenus.data);
+        }
+      } catch (refreshErr) {
+        console.error('오늘의 메뉴 재생성 실패 (기존 메뉴 유지):', refreshErr);
+        // 재생성 실패해도 기존 메뉴 유지하고 계속 진행
+      }
+      
       setCurrentPage('result');
     } catch (err) {
       setError('추천을 가져오는데 실패했습니다.');
@@ -256,15 +281,18 @@ function App() {
 
   const handleSelectMenu = (menuName) => {
     setSelectedMenu(menuName);
+    setPreviousPage(currentPage); // 현재 페이지를 이전 페이지로 저장
     setCurrentPage('restaurant');
   };
 
-  const handleShowRoulette = () => {
+  const handleShowRoulette = (includeDailyMenus) => {
+    setIncludeDaily(includeDailyMenus);
     setCurrentPage('roulette');
   };
 
   const handleRouletteResult = (menuName) => {
     setSelectedMenu(menuName);
+    setPreviousPage('roulette'); // 룰렛에서 왔음을 표시
     setCurrentPage('restaurant');
   };
 
@@ -274,36 +302,97 @@ function App() {
     setSelectedMenu(null);
   };
 
+  const handleBackToLanding = () => {
+    setCurrentPage('landing');
+    setCafeteriaMenu('');
+    setRecommendation(null);
+    setSelectedMenu(null);
+  };
+
   const handleBackToResult = () => {
     setCurrentPage('result');
+  };
+
+  // RestaurantPage에서 뒤로가기 핸들러
+  const handleBackFromRestaurant = () => {
+    // 이전 페이지가 result나 roulette이면 해당 페이지로, 아니면 input으로
+    if (previousPage === 'result') {
+      setCurrentPage('result');
+    } else if (previousPage === 'roulette') {
+      setCurrentPage('roulette');
+    } else {
+      // 오늘의 메뉴에서 바로 온 경우 (landing, input 등)
+      setCurrentPage('input');
+    }
+  };
+
+  // 오늘의 메뉴 클릭 핸들러
+  const handleDailyMenuClick = (menu) => {
+    // 메뉴를 선택하고 RestaurantPage로 이동
+    const menuData = {
+      menu_name: menu.menu_name,
+      menu: menu.menu_name,
+      display_name: menu.menu_name,
+      restaurant_name: menu.restaurant_name,
+      distance: menu.distance,
+      price_range: menu.price_range,
+      type: '오늘의 메뉴',
+      reason: menu.reason
+    };
+    setSelectedMenu(menuData);
+    setPreviousPage(currentPage); // 현재 페이지를 이전 페이지로 저장
+    setCurrentPage('restaurant');
+  };
+
+  // 오늘의 메뉴 룰렛 핸들러
+  const handleDailyMenuRoulette = (dailyMenus) => {
+    // 오늘의 메뉴를 AI 추천 형식으로 변환
+    const formattedMenus = dailyMenus.map(menu => ({
+      menu_name: menu.menu_name,
+      type: '오늘의 메뉴',
+      reason: menu.reason,
+      price_range: menu.price_range
+    }));
+    
+    // recommendation 상태 설정 (RouletteGame에서 사용)
+    setRecommendation({
+      recommendations: formattedMenus,
+      cafeteria_menu: '오늘의 추천 메뉴'
+    });
+    
+    setIncludeDaily(false); // 오늘의 메뉴만 사용
+    setPreviousPage(currentPage);
+    setCurrentPage('roulette');
   };
 
   // Landing 화면
   if (currentPage === 'landing') {
     return (
-      <div className="min-h-screen flex items-center justify-center relative">
-        <div className="glass rounded-3xl p-10 md:p-14 shadow-2xl">
-          <div className="mx-auto max-w-2xl text-center">
-            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500 to-amber-400 shadow-lg">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" className="h-9 w-9">
+      <div className="min-h-screen flex items-center justify-center relative px-4">
+        <div className="glass rounded-3xl p-6 sm:p-10 md:p-14 shadow-2xl w-full max-w-2xl">
+          <div className="mx-auto text-center">
+            <div className="mx-auto mb-4 sm:mb-6 flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500 to-amber-400 shadow-lg">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" className="h-7 w-7 sm:h-9 sm:w-9">
                 <path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7Zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5Z"/>
               </svg>
             </div>
-            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-800">🍱 밥뭇나?!</h1>
-            <p className="mt-3 text-slate-600">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-slate-800">🍱 밥뭇나?!</h1>
+            <p className="mt-2 sm:mt-3 text-sm sm:text-base text-slate-600">
               구내식당 메뉴 기반 AI 점심 추천 서비스<br className="hidden sm:block"/>
               날씨에 따라 최적의 메뉴를 추천해드립니다
             </p>
             <button 
               onClick={handleStart}
-              className="btn-primary mt-8 inline-flex items-center gap-2 rounded-xl px-6 py-3 text-[15px] font-semibold shadow-lg"
+              className="btn-primary mt-6 sm:mt-8 inline-flex items-center gap-2 rounded-xl px-5 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-[15px] font-semibold shadow-lg w-full sm:w-auto"
             >
               <span>시작하기</span>
             </button>
           </div>
         </div>
-        <div className="absolute right-4 bottom-4">
+        <div className="absolute right-2 bottom-2 sm:right-4 sm:bottom-4">
           <ManualLocationSelector
+            weather={weather}
+            location={location}
             onResolved={async ({ lat, lng, address, name }) => {
               const coords = { latitude: lat, longitude: lng };
               setUserCoords(coords);
@@ -320,16 +409,16 @@ function App() {
   // 로딩 화면
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="glass rounded-3xl p-10 md:p-14 shadow-2xl text-center max-w-md">
-          <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500 to-indigo-500">
-            <svg className="spinner h-8 w-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="glass rounded-3xl p-6 sm:p-10 md:p-14 shadow-2xl text-center w-full max-w-md">
+          <div className="mx-auto mb-4 sm:mb-6 flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500 to-indigo-500">
+            <svg className="spinner h-7 w-7 sm:h-8 sm:w-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" opacity=".2"></circle>
               <path d="M12 2a10 10 0 0 1 10 10"></path>
             </svg>
           </div>
-          <p className="text-lg font-semibold text-slate-800">Gemini AI가 메뉴를 추천하고 있어요…</p>
-          <p className="mt-2 text-slate-500">입력한 메뉴와 날씨를 반영하여 3가지 메뉴를 구성합니다</p>
+          <p className="text-base sm:text-lg font-semibold text-slate-800">Gemini AI가 메뉴를 추천하고 있어요…</p>
+          <p className="mt-2 text-sm sm:text-base text-slate-500">입력한 메뉴와 날씨를 반영하여 3가지 메뉴를 구성합니다</p>
         </div>
       </div>
     );
@@ -338,15 +427,15 @@ function App() {
   // 위치 권한 요청 화면 (원복)
   if (currentPage === 'location') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="glass rounded-3xl p-10 md:p-14 shadow-2xl text-center max-w-md">
-          <div className="text-7xl mb-6">📍</div>
-          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-800 mb-3">
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="glass rounded-3xl p-6 sm:p-10 md:p-14 shadow-2xl text-center w-full max-w-md">
+          <div className="text-5xl sm:text-6xl md:text-7xl mb-4 sm:mb-6">📍</div>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-slate-800 mb-3">
             위치 정보 접근
           </h1>
           {locationPermission === 'pending' && (
             <>
-              <p className="text-slate-600 mb-6">
+              <p className="text-sm sm:text-base text-slate-600 mb-6">
                 날씨 정보와 주변 식당 검색을 위해<br/>
                 위치 정보가 필요합니다
               </p>
@@ -359,13 +448,13 @@ function App() {
           )}
           {locationPermission === 'denied' && (
             <>
-              <p className="text-slate-600 mb-4">
+              <p className="text-sm sm:text-base text-slate-600 mb-4">
                 위치 정보 접근이 거부되었습니다
               </p>
-              <p className="text-slate-500 text-sm mb-6">
+              <p className="text-slate-500 text-xs sm:text-sm mb-6">
                 기본 위치(서울)로 진행합니다...
               </p>
-              <div className="text-amber-700 text-sm bg-amber-50 rounded-lg p-3">
+              <div className="text-amber-700 text-xs sm:text-sm bg-amber-50 rounded-lg p-3">
                 💡 브라우저 설정에서 위치 권한을 허용하면<br/>
                 더 정확한 주변 식당을 찾을 수 있습니다
               </div>
@@ -388,17 +477,18 @@ function App() {
 
       {/* 에러 메시지 */}
       {error && (
-        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 glass border border-red-200 text-red-800 px-6 py-3 rounded-lg shadow-lg z-50">
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 glass border border-red-200 text-red-800 px-4 sm:px-6 py-2 sm:py-3 rounded-lg shadow-lg z-50 max-w-[90%] sm:max-w-md text-sm sm:text-base">
           {error}
-          <button onClick={() => setError(null)} className="ml-4">✕</button>
+          <button onClick={() => setError(null)} className="ml-2 sm:ml-4">✕</button>
         </div>
       )}
 
       {/* 메인 레이아웃: 페이지 + 사이드바 */}
-      <div className="flex flex-col lg:flex-row gap-6 p-4 lg:p-6 max-w-[1000px] mx-auto items-start justify-center">
-        {/* 메인 콘텐츠 영역 */}
-        <div className="w-full lg:w-[1150px] flex-shrink-0">
-          {/* 페이지 라우팅 */}
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
+        <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 items-start">
+          {/* 메인 콘텐츠 영역 */}
+          <div className="w-full lg:flex-1 lg:max-w-3xl">
+            {/* 페이지 라우팅 */}
           {currentPage === 'input' && (
             <CafeteriaInput
               onSubmit={handleMenuInput}
@@ -407,52 +497,64 @@ function App() {
                 setAlertDesc(desc);
                 setAlertOpen(true);
               }}
+              onBack={handleBackToLanding}
               weather={weather}
               location={location}
             />
           )}
 
-          {currentPage === 'result' && (
-            <CafeteriaResult
-              recommendation={recommendation}
-              weather={weather}
-              location={location}
-              onSelectMenu={handleSelectMenu}
-              onShowRoulette={handleShowRoulette}
-              onBack={handleBack}
-            />
-          )}
+            {currentPage === 'result' && (
+              <CafeteriaResult
+                recommendation={recommendation}
+                weather={weather}
+                location={location}
+                onSelectMenu={handleSelectMenu}
+                onShowRoulette={handleShowRoulette}
+                onBack={handleBack}
+                dailyRecommendations={dailyRecommendations}
+              />
+            )}
 
-          {currentPage === 'roulette' && recommendation && (
-            <RouletteGame
-              menus={recommendation.recommendations}
-              weather={weather}
-              location={location}
-              onResult={handleRouletteResult}
-              onBack={handleBackToResult}
-            />
-          )}
-          {currentPage === 'restaurant' && (
-            <RestaurantPage
-              menuName={selectedMenu}
-              weather={weather}
-              location={location}
-              userCoords={userCoords}
-              onBack={handleBackToResult}
-            />
+            {currentPage === 'roulette' && recommendation && (
+              <RouletteGame
+                menus={recommendation.recommendations}
+                dailyRecommendations={dailyRecommendations}
+                includeDaily={includeDaily}
+                weather={weather}
+                location={location}
+                onResult={handleRouletteResult}
+                onBack={handleBackToResult}
+              />
+            )}
+            {currentPage === 'restaurant' && (
+              <RestaurantPage
+                menuName={selectedMenu}
+                weather={weather}
+                location={location}
+                userCoords={userCoords}
+                onBack={handleBackFromRestaurant}
+              />
+            )}
+          </div>
+
+          {/* 사이드바: 오늘의 추천 메뉴 (input, result, roulette, restaurant 페이지에서만 표시) */}
+          {['input', 'result', 'roulette', 'restaurant'].includes(currentPage) && weather && (
+            <aside className="w-full lg:w-72 xl:w-80 lg:sticky lg:top-6 flex-shrink-0">
+              {/* 사이드바 상단 여백 - 메인 콘텐츠의 날씨 박스 높이만큼 */}
+              <div className="hidden lg:block pt-3 pb-2">
+                <div className="h-[52px]"></div>
+              </div>
+              <DailyRecommendations 
+                location={location} 
+                userCoords={userCoords}
+                weather={weather}
+                onRecommendationsUpdate={setDailyRecommendations}
+                onMenuClick={handleDailyMenuClick}
+                onRouletteClick={handleDailyMenuRoulette}
+              />
+            </aside>
           )}
         </div>
-
-        {/* 사이드바: 오늘의 추천 메뉴 (input, result, roulette, restaurant 페이지에서만 표시) */}
-        {['input', 'result', 'roulette', 'restaurant'].includes(currentPage) && weather && (
-          <aside className="w-full lg:w-[360px] lg:sticky lg:top-6 lg:self-start flex-shrink-0">
-            <DailyRecommendations 
-              location={location} 
-              userCoords={userCoords}
-              weather={weather}
-            />
-          </aside>
-        )}
       </div>
     </div>
   );

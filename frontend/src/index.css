@@ -79,13 +79,19 @@ body.theme-default:not([style*="background-image"]) {
   animation: spin 1s linear infinite; 
 }
 
-/* Roulette circle */
+/* Roulette circle - 반응형 */
 .roulette-circle { 
-  width: 220px; 
-  height: 220px; 
+  width: 180px; 
+  height: 180px; 
   border-radius: 9999px; 
   background: linear-gradient(135deg, #ec4899 0%, #f97316 100%); 
   box-shadow: 0 16px 40px rgba(236,72,153,.35); 
+}
+@media (min-width: 640px) {
+  .roulette-circle {
+    width: 220px;
+    height: 220px;
+  }
 }
 .roulette-circle.running { 
   animation: spin 0.65s linear infinite; 

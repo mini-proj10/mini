@@ -8,7 +8,7 @@ const CITIES = [
   '경상북도', '경상남도', '제주특별자치도'
 ];
 
-export default function ManualLocationSelector({ onResolved }) {
+export default function ManualLocationSelector({ onResolved, weather, location }) {
   const [country] = useState('대한민국');
   const [city, setCity] = useState('서울특별시');
   const [district, setDistrict] = useState('');
@@ -69,9 +69,33 @@ export default function ManualLocationSelector({ onResolved }) {
   }, [country, city, district]);
 
   return (
-    <div className="glass rounded-xl p-4 shadow-md w-80">
-      <div className="text-left text-sm font-semibold mb-2">수동 위치 설정</div>
-      <div className="grid grid-cols-1 gap-2">
+    <div className="space-y-2">
+      {/* 날씨 + 주소 박스 */}
+      {weather && (
+        <div className="glass rounded-lg sm:rounded-xl shadow-lg p-2 sm:p-3 w-80">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="h-7 w-7 sm:h-9 sm:w-9 rounded-lg sm:rounded-xl bg-yellow-300/80 flex items-center justify-center flex-shrink-0">
+              <span className="text-base sm:text-xl">
+                {weather.sky_condition === '맑음' ? '☀️' : 
+                 weather.sky_condition === '구름많음' ? '⛅' : 
+                 weather.sky_condition === '흐림' ? '☁️' : '🌤️'}
+              </span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[11px] sm:text-[13px] text-slate-500">현재 위치</div>
+              <div className="font-semibold text-xs sm:text-sm truncate">{location || weather.location || '서울시'}</div>
+            </div>
+            <div className="chip rounded-lg sm:rounded-xl px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium text-slate-700 flex-shrink-0">
+              {weather.temperature}°C
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* 수동 위치 설정 */}
+      <div className="glass rounded-xl p-4 shadow-md w-80">
+        <div className="text-left text-sm font-semibold mb-2">수동 위치 설정</div>
+        <div className="grid grid-cols-1 gap-2">
         <div>
           <label className="block text-xs text-slate-500 mb-1">국가</label>
           <input value={country} disabled className="w-full border rounded px-2 py-1 bg-slate-50" />
@@ -119,6 +143,7 @@ export default function ManualLocationSelector({ onResolved }) {
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }

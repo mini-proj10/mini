@@ -1,8 +1,28 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import html2canvas from 'html2canvas';
+import { fixOklchColors } from '../utils/html2canvasSafeColors';
 
 const RestaurantPage = ({ menuName, weather, location, userCoords, onBack }) => {
   const [isMapLoaded, setIsMapLoaded] = useState(false);
   const [error, setError] = useState(null);
+  const [restaurants, setRestaurants] = useState([]);
+  const [sortBy, setSortBy] = useState('distance'); // 'distance' or 'review'
+  const [mapInstance, setMapInstance] = useState(null);
+  const [markers, setMarkers] = useState([]); // 마커와 InfoWindow를 저장
+  const restaurantInfoRef = useRef(null); // 음식점 정보 캡처용 ref
+
+  // menuName이 객체인 경우 문자열로 변환
+  const getMenuNameString = () => {
+    if (typeof menuName === 'string') {
+      return menuName;
+    }
+    if (menuName && typeof menuName === 'object') {
+      return menuName.menu_name || menuName.menu || menuName.display_name || '';
+    }
+    return '';
+  };
+
+  const menuNameStr = getMenuNameString();
 
   useEffect(() => {
     // 카카오맵 API 스크립트 로드
@@ -47,10 +67,10 @@ const RestaurantPage = ({ menuName, weather, location, userCoords, onBack }) => 
     };
   }, [menuName, location]);
 
-  // isMapLoaded가 true가 되면 지도 초기화
+  // isMapLoaded가 true가 되거나 menuNameStr이 변경되면 지도 초기화
   useEffect(() => {
-    if (isMapLoaded) {
-      console.log('🗺️ DOM 렌더링 대기 중...');
+    if (isMapLoaded && menuNameStr) {
+      console.log('🗺️ DOM 렌더링 대기 중...', 'menuNameStr:', menuNameStr);
       // DOM이 렌더링될 시간을 주기 위해 setTimeout 사용
       const timer = setTimeout(() => {
         initMap();
@@ -58,10 +78,10 @@ const RestaurantPage = ({ menuName, weather, location, userCoords, onBack }) => 
       
       return () => clearTimeout(timer);
     }
-  }, [isMapLoaded]);
+  }, [isMapLoaded, menuNameStr]);
 
   const initMap = () => {
-    console.log('🗺️ initMap 실행, 검색어:', menuName);
+    console.log('🗺️ initMap 실행, 검색어:', menuNameStr);
     const container = document.getElementById('map');
     if (!container) {
       console.error('❌ map 컨테이너를 찾을 수 없습니다');
@@ -75,26 +95,137 @@ const RestaurantPage = ({ menuName, weather, location, userCoords, onBack }) => 
         ? { lat: userCoords.latitude, lng: userCoords.longitude }
         : fallback;
 
-      const map = new window.kakao.maps.Map(container, {
-        center: new window.kakao.maps.LatLng(base.lat, base.lng),
-        level: 4
-      });
-      console.log('✅ 지도 생성 성공');
+      // 기존 지도가 있으면 재사용, 없으면 새로 생성
+      let map = mapInstance;
+      if (!map) {
+        map = new window.kakao.maps.Map(container, {
+          center: new window.kakao.maps.LatLng(base.lat, base.lng),
+          level: 4
+        });
+        console.log('✅ 지도 생성 성공');
+        setMapInstance(map);
 
-      // 선택한 위치(고정) 마커
-      const startPos = new window.kakao.maps.LatLng(base.lat, base.lng);
-      const startMarker = new window.kakao.maps.Marker({ position: startPos, map });
-      const startInfo = new window.kakao.maps.InfoWindow({
-        content: '<div style="padding:5px;font-size:12px;color:#1F2937;">📍 선택한 위치</div>'
-      });
-      startInfo.open(map, startMarker);
+        // 선택한 위치(고정) 마커 (최초 생성 시에만)
+        const startPos = new window.kakao.maps.LatLng(base.lat, base.lng);
+        const startMarker = new window.kakao.maps.Marker({ position: startPos, map });
+        const startInfo = new window.kakao.maps.InfoWindow({
+          content: '<div style="padding:5px;font-size:12px;color:#1F2937;">📍 선택한 위치</div>'
+        });
+        startInfo.open(map, startMarker);
+      } else {
+        // 기존 지도가 있으면 중심만 재설정
+        console.log('✅ 기존 지도 재사용');
+        map.setCenter(new window.kakao.maps.LatLng(base.lat, base.lng));
+        map.setLevel(4);
+      }
 
-      // 고정 좌표 기준으로 음식점 검색
+      // 음식점 검색 (메뉴가 변경되면 항상 새로 검색)
       searchPlaces(map, base.lat, base.lng);
       
     } catch (error) {
       console.error('❌ 지도 초기화 중 오류:', error);
       setError('지도를 초기화하는 중 오류가 발생했습니다.');
+    }
+  };
+
+  // 정렬된 음식점 리스트
+  const sortedRestaurants = [...restaurants].sort((a, b) => {
+    if (sortBy === 'distance') {
+      return a.distance - b.distance;
+    } else {
+      return b.rating - a.rating;
+    }
+  });
+
+  // 음식점 클릭 시 지도 중심 이동 및 InfoWindow 열기
+  const handleRestaurantClick = (restaurant, index) => {
+    if (mapInstance) {
+      const position = new window.kakao.maps.LatLng(restaurant.y, restaurant.x);
+      mapInstance.setCenter(position);
+      mapInstance.setLevel(3);
+      
+      // 해당 마커의 InfoWindow 열기
+      const markerData = markers.find(m => m.placeId === restaurant.id);
+      if (markerData) {
+        // 다른 모든 InfoWindow 닫기
+        markers.forEach(m => {
+          if (m.infowindow && m.isOpen) {
+            m.infowindow.close();
+            m.isOpen = false;
+          }
+        });
+        
+        // 선택한 InfoWindow 열기
+        if (!markerData.isOpen) {
+          markerData.infowindow.open(mapInstance, markerData.marker);
+          markerData.isOpen = true;
+        }
+      }
+    }
+  };
+
+  // 음식점 정보 이미지로 저장하기
+  const saveAsImage = async () => {
+    if (!restaurantInfoRef.current) {
+      alert('저장할 내용이 없습니다.');
+      return;
+    }
+    
+    try {
+      // oklch 색상 문제를 피하기 위해 임시로 배경색 변경
+      const originalBg = restaurantInfoRef.current.style.backgroundColor;
+      const originalBackdrop = restaurantInfoRef.current.style.backdropFilter;
+      
+      restaurantInfoRef.current.style.backgroundColor = 'rgba(255, 255, 255, 0.95)';
+      restaurantInfoRef.current.style.backdropFilter = 'none';
+      
+      const canvas = await html2canvas(restaurantInfoRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        logging: false,
+        useCORS: true,
+        allowTaint: true,
+        foreignObjectRendering: false,
+        imageTimeout: 0,
+        ignoreElements: (element) => {
+          // 카카오맵 관련 요소는 캡처에서 제외 (지도는 canvas로 렌더링되어 자동 캡처됨)
+          return element.classList?.contains('kakao-map-ignore') || false;
+        },
+        onclone: (clonedDoc) => {
+          // 클론된 문서의 모든 glass 클래스를 일반 배경으로 변경
+          const glassElements = clonedDoc.querySelectorAll('.glass');
+          glassElements.forEach(el => {
+            el.style.backgroundColor = 'rgba(255, 255, 255, 0.95)';
+            el.style.backdropFilter = 'none';
+          });
+          fixOklchColors(clonedDoc);
+        },
+      });
+      
+      // 원래 스타일 복원
+      restaurantInfoRef.current.style.backgroundColor = originalBg;
+      restaurantInfoRef.current.style.backdropFilter = originalBackdrop;
+      
+      // Canvas를 Blob으로 변환
+      canvas.toBlob((blob) => {
+        if (!blob) {
+          alert('이미지 생성에 실패했습니다.');
+          return;
+        }
+        
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const fileName = `음식점정보_${menuNameStr.replace(/[\\/:*?"<>|]/g, '_')}_${Date.now()}.png`;
+        link.download = fileName;
+        link.href = url;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 'image/png');
+    } catch (error) {
+      console.error('이미지 저장 실패:', error);
+      alert(`이미지 저장에 실패했습니다: ${error.message}`);
     }
   };
 
@@ -134,12 +265,24 @@ const RestaurantPage = ({ menuName, weather, location, userCoords, onBack }) => 
     };
 
     // 검색어 정제
-    const searchKeyword = extractCoreKeyword(menuName);
-    console.log('🔍 원본 메뉴명:', menuName);
-    if (searchKeyword !== menuName) {
+    const searchKeyword = extractCoreKeyword(menuNameStr);
+    console.log('🔍 원본 메뉴명:', menuNameStr);
+    if (searchKeyword !== menuNameStr) {
       console.log('🔍 정제된 검색어:', searchKeyword);
     }
     
+    // 거리 계산 함수 (Haversine formula)
+    const calculateDistance = (lat1, lng1, lat2, lng2) => {
+      const R = 6371; // 지구 반지름 (km)
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLng = (lng2 - lng1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                Math.sin(dLng/2) * Math.sin(dLng/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c; // km
+    };
+
     // 키워드로 장소 검색
     console.log('🔍 장소 검색 시작:', searchKeyword, `(반경 2km)`);
     ps.keywordSearch(searchKeyword, (data, status) => {
@@ -149,8 +292,17 @@ const RestaurantPage = ({ menuName, weather, location, userCoords, onBack }) => 
       if (status === window.kakao.maps.services.Status.OK) {
         console.log(`✅ ${data.length}개의 장소를 찾았습니다`);
         
+        // 검색 결과에 거리 정보 추가
+        const restaurantsWithDistance = data.map(place => ({
+          ...place,
+          distance: calculateDistance(lat, lng, parseFloat(place.y), parseFloat(place.x)),
+          rating: Math.random() * 2 + 3 // 임시 평점 (3.0~5.0)
+        }));
+        
+        setRestaurants(restaurantsWithDistance);
+        
         // 검색 결과를 지도에 표시
-        data.forEach((place, index) => {
+        const newMarkers = restaurantsWithDistance.map((place, index) => {
           const markerPosition = new window.kakao.maps.LatLng(place.y, place.x);
           
           const marker = new window.kakao.maps.Marker({
@@ -167,15 +319,37 @@ const RestaurantPage = ({ menuName, weather, location, userCoords, onBack }) => 
             </div>`
           });
 
+          // 마커 데이터 객체 생성
+          const markerData = {
+            marker: marker,
+            infowindow: infowindow,
+            isOpen: false,
+            placeId: place.id
+          };
+
           window.kakao.maps.event.addListener(marker, 'click', () => {
-            infowindow.open(map, marker);
+            if (markerData.isOpen) {
+              // 이미 열려있으면 닫기
+              infowindow.close();
+              markerData.isOpen = false;
+            } else {
+              // 닫혀있으면 열기
+              infowindow.open(map, marker);
+              markerData.isOpen = true;
+            }
           });
           
           // 첫 번째 마커는 기본으로 정보창 표시
           if (index === 0) {
             infowindow.open(map, marker);
+            markerData.isOpen = true;
           }
+
+          return markerData;
         });
+
+        // 마커 배열 저장
+        setMarkers(newMarkers);
 
         // 검색 결과가 있으면 첫 번째 결과 주변으로 지도 범위 조정
         if (data.length > 0) {
@@ -202,97 +376,187 @@ const RestaurantPage = ({ menuName, weather, location, userCoords, onBack }) => 
   };
 
   return (
-    <div className="min-h-screen px-4 py-8">
-      {/* 상단 날씨 정보 */}
-      {weather && (
-        <div className="absolute top-4 left-4 glass rounded-xl shadow-lg p-4 z-10">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-yellow-300/80 flex items-center justify-center">
-              <span className="text-xl">
-                {weather.sky_condition === '맑음' ? '☀️' : 
-                 weather.sky_condition === '구름많음' ? '⛅' : 
-                 weather.sky_condition === '흐림' ? '☁️' : 
-                 weather.sky_condition === '비' ? '🌧️' : 
-                 weather.sky_condition === '눈' ? '❄️' : '🌤️'}
-              </span>
+    <div className="min-h-screen">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6">
+        <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
+          {/* 메인 콘텐츠 */}
+          <div className="flex-1">
+            {/* 상단: 뒤로가기 버튼 + 날씨 정보 */}
+            <div className="w-full pt-3 sm:pt-4 pb-2">
+              <div className="flex items-center justify-between gap-3">
+                <button
+                  onClick={onBack}
+                  className="glass rounded-lg sm:rounded-xl px-3 sm:px-4 py-1.5 sm:py-2 hover:bg-white/90 text-sm sm:text-base flex-shrink-0"
+                >
+                  ← 뒤로
+                </button>
+                
+                {weather && (
+                  <div className="glass rounded-lg sm:rounded-xl shadow-lg p-2 sm:p-3 flex-shrink min-w-0">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <div className="h-7 w-7 sm:h-9 sm:w-9 rounded-lg sm:rounded-xl bg-yellow-300/80 flex items-center justify-center flex-shrink-0">
+                        <span className="text-base sm:text-xl">
+                          {weather.sky_condition === '맑음' ? '☀️' : 
+                           weather.sky_condition === '구름많음' ? '⛅' : 
+                           weather.sky_condition === '흐림' ? '☁️' : 
+                           weather.sky_condition === '비' ? '🌧️' : 
+                           weather.sky_condition === '눈' ? '❄️' : '🌤️'}
+                        </span>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[11px] sm:text-[13px] text-slate-500">현재 위치</div>
+                        <div className="font-semibold text-xs sm:text-sm truncate">{location || weather.location}</div>
+                      </div>
+                      <div className="chip rounded-lg sm:rounded-xl px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium text-slate-700 flex-shrink-0">
+                        {weather.temperature}°C
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-            <div>
-              <div className="text-[13px] text-slate-500">현재 위치</div>
-              <div className="font-semibold">{location || weather.location}</div>
+
+            {/* 헤더 박스 */}
+            <div className="w-full pb-4">
+              <div className="glass rounded-xl shadow-lg p-4 sm:p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex-1">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-1">
+                      🗺️ {menuNameStr} 맛집 찾기
+                    </h1>
+                    <p className="text-slate-600 text-sm sm:text-base">
+                      주변 2km 반경 내 음식점 {restaurants.length}곳
+                    </p>
+                  </div>
+                  <button
+                    onClick={saveAsImage}
+                    className="glass rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 hover:bg-green-50 text-xs sm:text-sm font-semibold transition-all flex-shrink-0 bg-green-50 hover:bg-green-100"
+                  >
+                    📸 저장
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
-          <div className="chip rounded-xl px-3 py-1.5 text-sm font-medium text-slate-700 mt-2">
-            {weather.temperature}°C
-          </div>
-        </div>
-      )}
 
-      <div className="max-w-6xl mx-auto">
-        <button
-          onClick={onBack}
-          className="glass rounded-xl px-4 py-2 mb-4 hover:bg-white/90"
-        >
-          ← 뒤로가기
-        </button>
+            {/* 지도 + 음식점 리스트 통합 박스 */}
+            <div ref={restaurantInfoRef} className="glass rounded-xl shadow-lg overflow-hidden">
+              <div className="flex flex-col lg:flex-row">
+                {/* 지도 (60%) */}
+                <div className="w-full lg:w-[60%] border-r border-slate-200/50 p-3">
+                  {error ? (
+                    <div className="h-64 sm:h-80 md:h-96 lg:h-[550px] flex items-center justify-center bg-slate-100 rounded-lg">
+                      <div className="text-center p-4">
+                        <p className="text-red-600 font-semibold">{error}</p>
+                        <p className="text-sm text-slate-600 mt-2">카카오맵 API 키를 확인해주세요</p>
+                      </div>
+                    </div>
+                  ) : !isMapLoaded ? (
+                    <div className="h-64 sm:h-80 md:h-96 lg:h-[550px] flex items-center justify-center bg-slate-100 rounded-lg">
+                      <div className="text-center">
+                        <div className="loading loading-spinner loading-lg text-primary"></div>
+                        <p className="mt-4 text-sm">지도를 불러오는 중...</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div id="map" className="w-full h-64 sm:h-80 md:h-96 lg:h-[550px] border border-slate-300/50 rounded-lg"></div>
+                  )}
+                </div>
 
-        <div className="glass rounded-3xl shadow-2xl overflow-hidden">
-          {/* 헤더 */}
-          <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-6 md:p-8">
-            <h2 className="text-3xl md:text-4xl font-bold mb-2">🗺️ {menuName} 맛집 찾기</h2>
-            <p className="opacity-90 text-lg">주변의 {menuName} 음식점을 찾아보세요</p>
-          </div>
+                {/* 음식점 리스트 (40%) */}
+                <div className="w-full lg:w-[40%] border-t lg:border-t-0 lg:border-l border-slate-200/50">
+                  <div className="p-4">
+                    {/* 정렬 버튼 */}
+                    <div className="flex gap-2 mb-4">
+                      <button
+                        onClick={() => setSortBy('distance')}
+                        className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
+                          sortBy === 'distance' 
+                            ? 'bg-indigo-500 text-white' 
+                            : 'bg-white/50 hover:bg-white/80'
+                        }`}
+                      >
+                        📍 거리순
+                      </button>
+                      <button
+                        onClick={() => setSortBy('review')}
+                        className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
+                          sortBy === 'review' 
+                            ? 'bg-indigo-500 text-white' 
+                            : 'bg-white/50 hover:bg-white/80'
+                        }`}
+                      >
+                        ⭐ 평점순
+                      </button>
+                    </div>
 
-          {/* 지도 */}
-          <div className="relative">
-            {error ? (
-              <div className="h-96 flex items-center justify-center bg-base-200">
-                <div className="text-center p-8">
-                  <div className="alert alert-error max-w-md mx-auto">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    <div>
-                      <p className="font-bold">{error}</p>
-                      <p className="text-sm">카카오맵 API 키를 확인해주세요</p>
+                    {/* 음식점 리스트 */}
+                    <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                      {sortedRestaurants.length === 0 ? (
+                        <div className="text-center py-8 text-slate-500">
+                          <p className="text-sm">검색 결과가 없습니다</p>
+                        </div>
+                      ) : (
+                        sortedRestaurants.map((restaurant, index) => (
+                          <div
+                            key={index}
+                            onClick={() => handleRestaurantClick(restaurant, index)}
+                            className="bg-white/50 rounded-lg p-3 cursor-pointer hover:bg-white/80 transition-all"
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <h3 className="font-semibold text-sm text-slate-800 flex-1">
+                                {index + 1}. {restaurant.place_name}
+                              </h3>
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <span className="text-yellow-500 text-sm">⭐</span>
+                                <span className="text-xs font-semibold text-slate-700">
+                                  {restaurant.rating.toFixed(1)}
+                                </span>
+                              </div>
+                            </div>
+                            
+                            <p className="text-xs text-slate-500 mb-2 line-clamp-1">
+                              {restaurant.road_address_name || restaurant.address_name}
+                            </p>
+                            
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs text-indigo-600 font-medium">
+                                📍 {restaurant.distance.toFixed(2)}km
+                              </span>
+                              {restaurant.phone && (
+                                <span className="text-xs text-slate-600">
+                                  📞 {restaurant.phone}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
-            ) : !isMapLoaded ? (
-              <div className="h-96 flex items-center justify-center bg-base-200">
-                <div className="text-center">
-                  <span className="loading loading-spinner loading-lg text-primary"></span>
-                  <p className="mt-4">지도를 불러오는 중...</p>
+
+              {/* 안내 메시지 */}
+              <div className="p-4 bg-white/30 border-t border-slate-200/50">
+                <div className="flex items-start gap-2 mb-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-5 h-5 text-blue-500 flex-shrink-0">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                  <span className="text-xs sm:text-sm text-slate-700">
+                    <strong>📍 현재 위치 기반:</strong> 주변 2km 반경 내 음식점을 표시합니다.
+                  </span>
+                </div>
+                
+                <div className="flex items-start gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-5 w-5 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-xs sm:text-sm text-slate-700">
+                    <strong>💡 Tip:</strong> 음식점을 클릭하면 지도에서 위치를 확인할 수 있습니다.
+                  </span>
                 </div>
               </div>
-            ) : (
-              <div id="map" className="w-full h-96"></div>
-            )}
-          </div>
-
-          {/* 안내 메시지 */}
-          <div className="p-6 bg-white/50">
-            <div className="glass rounded-xl p-4 mb-4">
-              <div className="flex items-start gap-3">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" className="stroke-current shrink-0 w-6 h-6 text-blue-500"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                <span className="text-sm"><strong>📍 현재 위치 기반:</strong> 주변 2km 반경 내 음식점을 표시합니다.</span>
-              </div>
             </div>
-            
-            <div className="glass rounded-xl p-4">
-              <div className="flex items-start gap-3">
-                <svg xmlns="http://www.w3.org/2000/svg" className="stroke-current shrink-0 h-6 w-6 text-green-500" fill="none" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                <span className="text-sm"><strong>💡 Tip:</strong> 마커를 클릭하면 상세 정보(주소, 전화번호)를 확인할 수 있습니다.</span>
-              </div>
-            </div>
-          </div>
-
-          {/* 다시 검색 버튼 */}
-          <div className="p-6">
-            <button
-              onClick={onBack}
-              className="btn-primary rounded-xl w-full py-4 text-lg font-semibold"
-            >
-              다른 메뉴 추천받기 🔄
-            </button>
           </div>
         </div>
       </div>
