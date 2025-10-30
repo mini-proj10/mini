@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 // ✅ 1. 무조건 통과시킬 애들
 const ALWAYS_ALLOW = new Set([
   "국밥",
@@ -13,8 +12,6 @@ const ALWAYS_ALLOW = new Set([
   "해장국"
 ]);
 
-=======
->>>>>>> cfffc7760ca0ff167ab9fa363101e1b89ae8a0f6
 const HANGUL_JAMO_ONLY = /^[\u3131-\u318E]+$/; // ㄱ~ㅣ(자모만)
 const KOR2 = /[가-힣]{2,}/;                     // 완성형 한글 2자+
 const ALNUM2 = /[A-Za-z0-9]{2,}/;               // 영숫자 2자+
@@ -53,7 +50,6 @@ export function normalizeAndSplit(text = "") {
 
 function isFoodLike(token = "") {
   const t = token.trim();
-<<<<<<< HEAD
 
   // ✅ 2. 여기서 제일 먼저 화이트리스트 확인
   if (ALWAYS_ALLOW.has(t)) return true;
@@ -67,19 +63,11 @@ function isFoodLike(token = "") {
   const low = t.toLowerCase();
   if (EN_HINTS.some((k) => low.includes(k))) return true;
 
-=======
-  if (FOOD_NEGATIVE.has(t)) return false;
-  if (FOOD_KEYWORDS.has(t)) return true;
-  if (FOOD_SUFFIXES.some((suf) => t.endsWith(suf))) return true;
-  const low = t.toLowerCase();
-  if (EN_HINTS.some((k) => low.includes(k))) return true;
->>>>>>> cfffc7760ca0ff167ab9fa363101e1b89ae8a0f6
   return false;
 }
 
 export function isValidMenuToken(token = "") {
   const t = token.trim();
-<<<<<<< HEAD
   if (!t) return false;
 
   // ✅ 3. 여기서도 한 번 더
@@ -90,11 +78,6 @@ export function isValidMenuToken(token = "") {
   if (HANGUL_JAMO_ONLY.test(t)) return false;
   if (!(KOR2.test(t) || ALNUM2.test(t))) return false;
 
-=======
-  if (!t || FOOD_NEGATIVE.has(t)) return false;
-  if (HANGUL_JAMO_ONLY.test(t)) return false;
-  if (!(KOR2.test(t) || ALNUM2.test(t))) return false;
->>>>>>> cfffc7760ca0ff167ab9fa363101e1b89ae8a0f6
   return isFoodLike(t);
 }
 
@@ -103,10 +86,9 @@ export function validateMenuTokens(rawText, hasImage = false) {
   const tokens = normalizeAndSplit(rawText);
   const valids = tokens.filter(isValidMenuToken);
 
-<<<<<<< HEAD
+
   // (1) 이미지만 있는 경우
-=======
->>>>>>> cfffc7760ca0ff167ab9fa363101e1b89ae8a0f6
+
   if (tokens.length === 0 && hasImage) {
     return {
       ok: false,
@@ -115,11 +97,10 @@ export function validateMenuTokens(rawText, hasImage = false) {
       tokens, valids,
     };
   }
-<<<<<<< HEAD
+
 
   // (2) 텍스트는 있는데 다 음식이 아닌 경우
-=======
->>>>>>> cfffc7760ca0ff167ab9fa363101e1b89ae8a0f6
+
   if (tokens.length > 0 && valids.length === 0) {
     return {
       ok: false,
@@ -128,11 +109,10 @@ export function validateMenuTokens(rawText, hasImage = false) {
       tokens, valids,
     };
   }
-<<<<<<< HEAD
+
 
   // (3) 이미지도 없고 텍스트도 유효한 게 없는 경우
-=======
->>>>>>> cfffc7760ca0ff167ab9fa363101e1b89ae8a0f6
+
   if (!hasImage && valids.length === 0) {
     return {
       ok: false,
@@ -141,12 +121,6 @@ export function validateMenuTokens(rawText, hasImage = false) {
       tokens, valids,
     };
   }
-<<<<<<< HEAD
 
   return { ok: true, tokens, valids };
 }
-=======
-  return { ok: true, tokens, valids };
-}
-
->>>>>>> cfffc7760ca0ff167ab9fa363101e1b89ae8a0f6
