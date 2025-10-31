@@ -18,15 +18,16 @@ class OCRService:
     
     def __init__(self):
         """OCR 서비스 초기화"""
-        api_key = os.getenv('GEMINI_API_KEY',"AIzaSyCq5Z9rswz4FMMuAmQIKaEf4XCcRKkvuO4")
+        api_key = os.getenv('GEMINI_API_KEY')
         if not api_key:
-            raise ValueError("GEMINI_API_KEY가 설정되지 않았습니다.")
+            raise ValueError("❌ GEMINI_API_KEY가 설정되지 않았습니다. .env 파일을 확인하세요.")
+
         
         genai.configure(api_key=api_key)
         
         # Vision 모델 설정
         self.model = genai.GenerativeModel(
-            'gemini-2.0-flash-exp',
+            'gemini-2.0-flash',
             generation_config={
                 "temperature": 0.3,  # 낮은 temperature로 정확도 향상
                 "top_p": 0.8,

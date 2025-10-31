@@ -20,23 +20,6 @@ export const weatherAPI = {
   },
 };
 
-export const recommendAPI = {
-  getRecommendation: async (data) => {
-    const response = await api.post('/api/recommend', data);
-    return response.data;
-  },
-};
-
-export const recipeAPI = {
-  getRecipe: async (menuName, numServings = 1) => {
-    const response = await api.post('/api/recipe', {
-      menu_name: menuName,
-      num_servings: numServings
-    });
-    return response.data;
-  },
-};
-
 export const cafeteriaAPI = {
   getRecommendation: async (location, cafeteriaMenu, userLocation = null, preferExternal = true, dailyMenus = null, imageData = null) => {
     const payload = {

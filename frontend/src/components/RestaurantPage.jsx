@@ -26,7 +26,11 @@ const RestaurantPage = ({ menuName, weather, location, userCoords, onBack }) => 
 
   useEffect(() => {
     // 카카오맵 API 스크립트 로드
-    const KAKAO_API_KEY = import.meta.env.VITE_KAKAO_API_KEY || '97530b44b3984f6777b7a8897d33e173';
+    const KAKAO_API_KEY = import.meta.env.VITE_KAKAO_API_KEY;
+
+    if (!KAKAO_API_KEY) {
+      console.error("❌ VITE_KAKAO_API_KEY가 설정되지 않았습니다. .env 파일을 확인하세요.");
+    }
     console.log('🗺️ 카카오맵 API 키:', KAKAO_API_KEY);
     
     // 이미 로드된 스크립트가 있으면 제거
@@ -428,12 +432,6 @@ const RestaurantPage = ({ menuName, weather, location, userCoords, onBack }) => 
                       주변 2km 반경 내 음식점 {restaurants.length}곳
                     </p>
                   </div>
-                  <button
-                    onClick={saveAsImage}
-                    className="glass rounded-lg sm:rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 hover:bg-green-50 text-xs sm:text-sm font-semibold transition-all flex-shrink-0 bg-green-50 hover:bg-green-100"
-                  >
-                    📸 저장
-                  </button>
                 </div>
               </div>
             </div>

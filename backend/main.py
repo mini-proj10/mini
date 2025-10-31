@@ -26,22 +26,7 @@ app.add_middleware(
 weather_service = WeatherService()
 ai_service = AIService()
 
-# Unsplash 서비스 (날씨별 배경 사진)
-try:
-    from services.unsplash_service import UnsplashService
-    unsplash_service = UnsplashService()
-except Exception as e:
-    print(f"⚠️ Unsplash 서비스 로드 실패: {e}")
-    unsplash_service = None
-
 # Request 모델
-class RecommendRequest(BaseModel):
-    location: str = "서울"
-    food_type: Optional[str] = "상관없음"
-    mood: Optional[str] = "평범한"
-    num_people: int = 1
-    moods: Optional[list] = None  # 다인 모드일 때 각 사람의 기분
-
 class CafeteriaMenuRequest(BaseModel):
     location: str = "서울"
     cafeteria_menu: Optional[str] = None  # 구내식당 메뉴 (텍스트, 선택)
@@ -50,10 +35,6 @@ class CafeteriaMenuRequest(BaseModel):
     prefer_external: bool = True  # 외부식당 선호 (CAM 모드)
     daily_menus: Optional[List[Dict]] = None  # 오늘의 추천 메뉴 리스트 (중복 체크용)
 
-class RecipeRequest(BaseModel):
-    menu_name: str
-    num_servings: int = 1
-
 @app.get("/")
 async def root():
     return {
@@ -61,7 +42,9 @@ async def root():
         "version": "1.0.0",
         "endpoints": {
             "weather": "/api/weather?location={location}",
-            "recommend": "/api/recommend (POST)"
+            "recommend-from-cafeteria": "/api/recommend-from-cafeteria (POST)",
+            "daily-recommendations": "/api/daily-recommendations (GET)",
+            "daily-recommendations-refresh": "/api/daily-recommendations-refresh (POST)"
         }
     }
 
@@ -73,31 +56,6 @@ async def get_weather(location: str = "서울", lat: Optional[float] = None, lng
         return {
             "success": True,
             "data": weather_data
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/recommend")
-async def recommend_menu(request: RecommendRequest):
-    """AI 메뉴 추천"""
-    try:
-        # 1. 날씨 정보 가져오기
-        weather_data = await weather_service.get_weather(request.location)
-        
-        # 2. 사용자 선호도
-        preferences = {
-            "food_type": request.food_type,
-            "mood": request.mood,
-            "num_people": request.num_people,
-            "moods": request.moods
-        }
-        
-        # 3. AI 추천
-        recommendation = await ai_service.recommend_lunch(weather_data, preferences)
-        
-        return {
-            "success": True,
-            "data": recommendation
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -171,43 +129,6 @@ async def recommend_from_cafeteria(request: CafeteriaMenuRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/recipe")
-async def get_recipe(request: RecipeRequest):
-    """레시피 생성"""
-    try:
-        recipe = await ai_service.generate_recipe(request.menu_name, request.num_servings)
-        return {
-            "success": True,
-            "data": recipe
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/api/weather-photo")
-async def get_weather_photo(weather_condition: str, temperature: Optional[float] = None):
-    """날씨 조건에 맞는 배경 사진 가져오기"""
-    try:
-        if unsplash_service:
-            photo_data = await unsplash_service.get_weather_photo(weather_condition, temperature)
-            return {
-                "success": True,
-                "data": photo_data
-            }
-        else:
-            # Unsplash 서비스 없으면 기본 그라데이션 반환
-            fallback = {
-                "success": False,
-                "fallback": True,
-                "background": "linear-gradient(140deg, #4facfe 0%, #00f2fe 50%, #00d4ff 100%)",
-                "weather_condition": weather_condition
-            }
-            return {
-                "success": True,
-                "data": fallback
-            }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-        
 @app.get("/api/daily-recommendations")
 async def get_daily_recommendations(location: str = "서울", lat: Optional[float] = None, lng: Optional[float] = None):
     """오늘의 추천 메뉴 3개 조회 (위치 & 날씨 기반)"""

@@ -86,7 +86,7 @@ const DailyRecommendations = ({ location, userCoords, weather, onRecommendations
   }
 
   return (
-    <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg p-4 sm:p-5 border border-gray-200">
+    <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg p-4 sm:p-5 border border-gray-200 w-full">
       {/* 헤더 */}
       <div className="mb-3 sm:mb-4">
         <h2 className="text-base sm:text-lg font-bold text-gray-800 mb-2 flex items-center gap-2">
@@ -101,36 +101,45 @@ const DailyRecommendations = ({ location, userCoords, weather, onRecommendations
       </div>
 
       {/* 추천 메뉴 리스트 */}
-      <div className="space-y-2 sm:space-y-3">
+      <div className="space-y-2.5 sm:space-y-3">
         {recommendations.recommendations.map((menu, index) => (
           <div
             key={index}
             onClick={() => handleMenuClick(menu)}
-            className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-2.5 sm:p-3.5 border-l-4 border-blue-500 hover:shadow-md hover:scale-[1.02] transition-all duration-200 cursor-pointer group"
+            className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 sm:p-3.5 border-l-4 border-blue-500 hover:shadow-md hover:scale-[1.01] sm:hover:scale-[1.02] transition-all duration-200 cursor-pointer group"
           >
-            <div className="flex items-start gap-2 sm:gap-2.5">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5 sm:gap-2 mb-1 sm:mb-1.5">
-                  <h3 className="text-sm sm:text-base font-bold text-gray-800 group-hover:text-blue-600 transition-colors truncate">
+            <div className="flex items-start gap-2.5 sm:gap-3">
+              <div className="flex-1 min-w-0 overflow-hidden">
+                {/* 메뉴명과 카테고리 - 모바일에서 줄바꿈 허용 */}
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-1.5 sm:mb-2">
+                  <h3 className="text-sm sm:text-base font-bold text-gray-800 group-hover:text-blue-600 transition-colors break-words">
                     {menu.menu_name}
                   </h3>
-                  <span className="badge badge-primary badge-xs sm:badge-sm flex-shrink-0 text-[10px] sm:text-xs">
+                  <span className="badge badge-primary badge-xs sm:badge-sm flex-shrink-0 text-[10px] sm:text-xs whitespace-nowrap">
                     {menu.category}
                   </span>
+                  {/* 모바일에서 메달 아이콘을 메뉴명 옆에 표시 */}
+                  <div className="text-base sm:hidden flex-shrink-0">
+                    {index === 0 && '🥇'}
+                    {index === 1 && '🥈'}
+                    {index === 2 && '🥉'}
+                  </div>
                 </div>
-                <p className="text-xs sm:text-sm text-gray-600 mb-1.5 sm:mb-2 line-clamp-2">
+                <p className="text-xs sm:text-sm text-gray-600 mb-2 sm:mb-2.5 line-clamp-2 leading-relaxed">
                   {menu.reason}
                 </p>
-                <div className="flex items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-gray-500">
-                  <span className="bg-white/70 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full">
+                {/* 가격 정보 - 모바일에서 단일 줄, 데스크톱에서 여러 항목 */}
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 text-[10px] sm:text-xs text-gray-500">
+                  <span className="bg-white/70 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full whitespace-nowrap">
                     💰 {menu.price_range}
                   </span>
-                  <span className="text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:inline">
+                  <span className="text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity hidden sm:inline whitespace-nowrap">
                     🗺️ 주변 검색
                   </span>
                 </div>
               </div>
-              <div className="text-lg sm:text-2xl flex-shrink-0">
+              {/* 데스크톱에서만 메달 아이콘 표시 */}
+              <div className="text-xl sm:text-2xl flex-shrink-0 hidden sm:block">
                 {index === 0 && '🥇'}
                 {index === 1 && '🥈'}
                 {index === 2 && '🥉'}
