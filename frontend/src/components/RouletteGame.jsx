@@ -32,18 +32,28 @@ const RouletteGame = ({ menus, dailyRecommendations, includeDaily, weather, loca
 
   const spin = () => {
     if (isSpinning) return;
-
+  
     setIsSpinning(true);
     setResult(null);
-
+  
     const selectedIndex = Math.floor(Math.random() * rouletteMenus.length);
     const selectedMenu = rouletteMenus[selectedIndex];
-
+  
     const degreePerItem = 360 / rouletteMenus.length;
-    const targetRotation = 360 * 5 + (360 - (selectedIndex * degreePerItem + degreePerItem / 2));
-
+    const spinRotations = 360 * 5; // 5바퀴
+    
+    // 현재 회전값을 0-360 범위로 정규화
+    const currentNormalizedRotation = rotation % 360;
+    
+    // 선택된 아이템이 위(화살표)에 오도록 하는 각도
+    const targetAngle = selectedIndex * degreePerItem + degreePerItem / 2;
+    
+    // 목표 위치까지의 회전값 계산
+    const angleToTarget = (360 - targetAngle + 360 - currentNormalizedRotation) % 360;
+    const targetRotation = spinRotations + angleToTarget;
+  
     setRotation((prev) => prev + targetRotation);
-
+  
     setTimeout(() => {
       setIsSpinning(false);
       setResult(selectedMenu);
