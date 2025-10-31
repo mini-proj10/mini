@@ -2,7 +2,6 @@ import React, { useState, useRef } from 'react';
 import html2canvas from 'html2canvas';
 import { fixOklchColors } from '../utils/html2canvasSafeColors';
 
-
 const RouletteGame = ({ menus, dailyRecommendations, includeDaily, weather, location, onResult, onBack }) => {
   const [isSpinning, setIsSpinning] = useState(false);
   const [rotation, setRotation] = useState(0);
@@ -14,16 +13,18 @@ const RouletteGame = ({ menus, dailyRecommendations, includeDaily, weather, loca
     if (!includeDaily || !dailyRecommendations?.recommendations) {
       return menus;
     }
-    
-    // 오늘의 메뉴 3개를 추가 (추천 메뉴 3개 + 오늘의 메뉴 3개 = 총 6개)
-    const dailyMenus = dailyRecommendations.recommendations.map(rec => ({
+
+    // 오늘의 메뉴 3개를 추가
+    const dailyMenus = dailyRecommendations.recommendations.map((rec) => ({
       menu_name: rec.menu_name || rec.display_name,
       type: '오늘의 메뉴',
       reason: `오늘의 추천 메뉴입니다`,
       restaurant_name: rec.restaurant_name,
-      distance: rec.distance
+      distance: rec.distance,
+      minutes_away: rec.minutes_away,
+      price_range: rec.price_range,
     }));
-    
+
     return [...menus, ...dailyMenus];
   };
 
@@ -35,17 +36,14 @@ const RouletteGame = ({ menus, dailyRecommendations, includeDaily, weather, loca
     setIsSpinning(true);
     setResult(null);
 
-    // 랜덤 결과 선택
     const selectedIndex = Math.floor(Math.random() * rouletteMenus.length);
     const selectedMenu = rouletteMenus[selectedIndex];
 
-    // 회전 각도 계산 (최소 5바퀴 + 랜덤 각도)
     const degreePerItem = 360 / rouletteMenus.length;
     const targetRotation = 360 * 5 + (360 - (selectedIndex * degreePerItem + degreePerItem / 2));
-    
-    setRotation(rotation + targetRotation);
 
-    // 애니메이션 완료 후 결과 표시
+    setRotation((prev) => prev + targetRotation);
+
     setTimeout(() => {
       setIsSpinning(false);
       setResult(selectedMenu);
@@ -60,7 +58,7 @@ const RouletteGame = ({ menus, dailyRecommendations, includeDaily, weather, loca
     'bg-purple-500',
     'bg-pink-500',
     'bg-indigo-500',
-    'bg-orange-500'
+    'bg-orange-500',
   ];
 
   // 결과 이미지로 저장하기
@@ -69,16 +67,21 @@ const RouletteGame = ({ menus, dailyRecommendations, includeDaily, weather, loca
       alert('저장할 내용이 없습니다.');
       return;
     }
-    
+
     try {
-      // oklch 색상 문제를 피하기 위해 임시로 배경색 변경
-      const originalBg = resultRef.current.style.backgroundColor;
-      const originalBackdrop = resultRef.current.style.backdropFilter;
-      
-      resultRef.current.style.backgroundColor = 'rgba(255, 255, 255, 0.95)';
-      resultRef.current.style.backdropFilter = 'none';
-      
-      const canvas = await html2canvas(resultRef.current, {
+      const target = resultRef.current;
+
+      // 원래 스타일 백업
+      const originalBg = target.style.backgroundColor;
+      const originalBackdrop = target.style.backdropFilter;
+      const originalOverflow = target.style.overflow;
+
+      // 캡처용 스타일
+      target.style.backgroundColor = 'rgba(255, 255, 255, 0.95)';
+      target.style.backdropFilter = 'none';
+      target.style.overflow = 'visible'; // ★ 안 열어두면 1~2px 잘림
+
+      const canvas = await html2canvas(target, {
         backgroundColor: '#ffffff',
         scale: 2,
         logging: false,
@@ -87,27 +90,60 @@ const RouletteGame = ({ menus, dailyRecommendations, includeDaily, weather, loca
         foreignObjectRendering: false,
         imageTimeout: 0,
         onclone: (clonedDoc) => {
-          // 클론된 문서의 모든 glass 클래스를 일반 배경으로 변경
+          // glass → 평평한 배경
           const glassElements = clonedDoc.querySelectorAll('.glass');
-          glassElements.forEach(el => {
+          glassElements.forEach((el) => {
             el.style.backgroundColor = 'rgba(255, 255, 255, 0.95)';
             el.style.backdropFilter = 'none';
           });
+
+          // 전체 결과 박스에 여유
+          const root = clonedDoc.getElementById('roulette-result-root');
+          if (root) {
+            root.style.paddingBottom = '18px'; // ★ 아래쪽 여유
+            root.style.overflow = 'visible';
+            root.style.lineHeight = '1.35';
+          }
+
+          // ★ 문제되던 "📍 ... " 줄
+          const place = clonedDoc.querySelector('.result-place-pill');
+          if (place) {
+            place.style.display = 'inline-flex';
+            place.style.alignItems = 'center';
+            place.style.gap = '6px';
+            place.style.minHeight = '38px'; // ★ 이거 없으면 짤림
+            place.style.lineHeight = '1.25';
+            place.style.padding = '6px 16px';
+            place.style.overflow = 'visible';
+            place.style.borderRadius = '9999px';
+          }
+
+          // 칩들도 혹시 몰라서 키워줌
+          const chips = clonedDoc.querySelectorAll('.result-chip');
+          chips.forEach((el) => {
+            el.style.display = 'inline-flex';
+            el.style.alignItems = 'center';
+            el.style.minHeight = '36px';
+            el.style.lineHeight = '1.25';
+            el.style.overflow = 'visible';
+          });
+
+          // 네 util
           fixOklchColors(clonedDoc);
         },
       });
-      
+
       // 원래 스타일 복원
-      resultRef.current.style.backgroundColor = originalBg;
-      resultRef.current.style.backdropFilter = originalBackdrop;
-      
-      // Canvas를 Blob으로 변환
+      target.style.backgroundColor = originalBg;
+      target.style.backdropFilter = originalBackdrop;
+      target.style.overflow = originalOverflow;
+
       canvas.toBlob((blob) => {
         if (!blob) {
           alert('이미지 생성에 실패했습니다.');
           return;
         }
-        
+
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         const fileName = `룰렛결과_${(result?.menu_name || '메뉴').replace(/[\\/:*?"<>|]/g, '_')}_${Date.now()}.png`;
@@ -140,23 +176,31 @@ const RouletteGame = ({ menus, dailyRecommendations, includeDaily, weather, loca
                 >
                   ← 뒤로
                 </button>
-                
+
                 {/* 우측: 날씨 + 주소 박스 */}
                 {weather && (
                   <div className="glass rounded-lg sm:rounded-xl shadow-lg p-2 sm:p-3 flex-shrink min-w-0">
                     <div className="flex items-center gap-2 sm:gap-3">
                       <div className="h-7 w-7 sm:h-9 sm:w-9 rounded-lg sm:rounded-xl bg-yellow-300/80 flex items-center justify-center flex-shrink-0">
                         <span className="text-base sm:text-xl">
-                          {weather.sky_condition === '맑음' ? '☀️' : 
-                           weather.sky_condition === '구름많음' ? '⛅' : 
-                           weather.sky_condition === '흐림' ? '☁️' : 
-                           weather.sky_condition === '비' ? '🌧️' : 
-                           weather.sky_condition === '눈' ? '❄️' : '🌤️'}
+                          {weather.sky_condition === '맑음'
+                            ? '☀️'
+                            : weather.sky_condition === '구름많음'
+                            ? '⛅'
+                            : weather.sky_condition === '흐림'
+                            ? '☁️'
+                            : weather.sky_condition === '비'
+                            ? '🌧️'
+                            : weather.sky_condition === '눈'
+                            ? '❄️'
+                            : '🌤️'}
                         </span>
                       </div>
                       <div className="min-w-0">
                         <div className="text-[11px] sm:text-[13px] text-slate-500">현재 위치</div>
-                        <div className="font-semibold text-xs sm:text-sm truncate">{location || weather.location || '서울시'}</div>
+                        <div className="font-semibold text-xs sm:text-sm truncate">
+                          {location || weather.location || '서울시'}
+                        </div>
                       </div>
                       <div className="chip rounded-lg sm:rounded-xl px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium text-slate-700 flex-shrink-0">
                         {weather.temperature}°C
@@ -173,9 +217,7 @@ const RouletteGame = ({ menus, dailyRecommendations, includeDaily, weather, loca
                 <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-800 mb-1">
                   🎰 밥뭇나?! 룰렛
                 </h1>
-                <p className="text-slate-600 text-xs sm:text-sm md:text-base">
-                  운명에 맡겨보세요!
-                </p>
+                <p className="text-slate-600 text-xs sm:text-sm md:text-base">운명에 맡겨보세요!</p>
               </div>
             </div>
 
@@ -187,38 +229,32 @@ const RouletteGame = ({ menus, dailyRecommendations, includeDaily, weather, loca
                   <div className="w-0 h-0 border-l-[18px] sm:border-l-[22px] md:border-l-[25px] border-r-[18px] sm:border-r-[22px] md:border-r-[25px] border-t-[36px] sm:border-t-[44px] md:border-t-[50px] border-l-transparent border-r-transparent border-t-yellow-400 drop-shadow-lg"></div>
                 </div>
 
-                {/* 룰렛 휠 - aspect-square로 정확한 원형 유지 */}
+                {/* 룰렛 휠 */}
                 <div className="relative w-full max-w-[280px] sm:max-w-[360px] md:max-w-[440px] lg:max-w-[500px] aspect-square mx-auto">
                   <div
                     className="absolute inset-0 rounded-full shadow-2xl transition-transform duration-[4000ms] ease-out overflow-hidden"
                     style={{
-                      transform: `rotate(${rotation}deg)`
+                      transform: `rotate(${rotation}deg)`,
                     }}
                   >
-                    {/* 룰렛 섹션들 */}
                     {rouletteMenus.map((menu, index) => {
                       const degreePerItem = 360 / rouletteMenus.length;
                       const startAngle = index * degreePerItem;
-                      const endAngle = startAngle + degreePerItem;
                       const color = colors[index % colors.length];
 
-                      // 원의 중심에서 시작하여 호를 그리는 polygon 생성
-                      const points = ['50% 50%']; // 중심점
-                      
-                      // 시작 각도부터 끝 각도까지 여러 점을 생성하여 부드러운 호 만들기
+                      const points = ['50% 50%'];
                       const segments = 20;
                       for (let i = 0; i <= segments; i++) {
-                        const angle = startAngle + (degreePerItem * i / segments) - 90;
-                        const x = 50 + 50 * Math.cos(angle * Math.PI / 180);
-                        const y = 50 + 50 * Math.sin(angle * Math.PI / 180);
+                        const angle = startAngle + (degreePerItem * i) / segments - 90;
+                        const x = 50 + 50 * Math.cos((angle * Math.PI) / 180);
+                        const y = 50 + 50 * Math.sin((angle * Math.PI) / 180);
                         points.push(`${x}% ${y}%`);
                       }
 
-                      // 텍스트 위치 계산 (원의 중심에서 외곽으로)
                       const textAngle = startAngle + degreePerItem / 2;
-                      const textRadius = 35; // 중심에서 텍스트까지의 거리 (%)
-                      const textX = 50 + textRadius * Math.cos((textAngle - 90) * Math.PI / 180);
-                      const textY = 50 + textRadius * Math.sin((textAngle - 90) * Math.PI / 180);
+                      const textRadius = 35;
+                      const textX = 50 + textRadius * Math.cos(((textAngle - 90) * Math.PI) / 180);
+                      const textY = 50 + textRadius * Math.sin(((textAngle - 90) * Math.PI) / 180);
 
                       return (
                         <div
@@ -234,7 +270,7 @@ const RouletteGame = ({ menus, dailyRecommendations, includeDaily, weather, loca
                               left: `${textX}%`,
                               top: `${textY}%`,
                               transform: `translate(-50%, -50%) rotate(${textAngle}deg)`,
-                              transformOrigin: 'center'
+                              transformOrigin: 'center',
                             }}
                           >
                             {menu.menu_name || menu.display_name || menu.menu}
@@ -262,7 +298,13 @@ const RouletteGame = ({ menus, dailyRecommendations, includeDaily, weather, loca
                 >
                   {isSpinning ? (
                     <>
-                      <svg className="spinner h-5 w-5 sm:h-6 sm:w-6 inline-block mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg
+                        className="spinner h-5 w-5 sm:h-6 sm:w-6 inline-block mr-2"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
                         <circle cx="12" cy="12" r="10" opacity=".2"></circle>
                         <path d="M12 2a10 10 0 0 1 10 10"></path>
                       </svg>
@@ -274,23 +316,37 @@ const RouletteGame = ({ menus, dailyRecommendations, includeDaily, weather, loca
                 </button>
               </div>
             ) : (
-              <div ref={resultRef} className="glass rounded-xl shadow-lg p-4 sm:p-6 mb-4">
+              // ★ 이게 실제 캡처되는 영역
+              <div
+                id="roulette-result-root"
+                ref={resultRef}
+                className="glass rounded-xl shadow-lg p-4 sm:p-6 mb-4 overflow-visible"
+              >
                 <div className="text-center">
                   <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">🎉</div>
                   <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-2 sm:mb-3">
                     {result.menu_name || result.display_name || result.menu}
                   </h2>
+
+                  {/* ★ 여기 클래스 추가 */}
                   {result.restaurant_name && (
-                    <p className="text-sm sm:text-base text-slate-600 mb-2 truncate px-2">📍 {result.restaurant_name}</p>
+                    <p
+                      className="result-place-pill mx-auto mb-3 sm:mb-4 text-sm sm:text-base text-slate-700 bg-white/90 inline-flex items-center gap-2 px-4 py-2 rounded-full shadow-sm border border-slate-100"
+                      style={{ overflow: 'visible' }}
+                    >
+                      📍 {result.restaurant_name}
+                      {result.type === '오늘의 메뉴' ? ' · 오늘의 메뉴' : ''}
+                    </p>
                   )}
+
                   <div className="flex gap-2 justify-center mb-3 sm:mb-4 flex-wrap">
                     {(result.minutes_away || result.distance?.walking_min) && (
-                      <span className="text-xs sm:text-sm text-slate-600 bg-slate-100 px-2 sm:px-3 py-1 rounded">
+                      <span className="result-chip text-xs sm:text-sm text-slate-600 bg-slate-100 px-3 py-2 rounded-lg">
                         🚶 {result.minutes_away || result.distance.walking_min}분
                       </span>
                     )}
                     {result.price_range && (
-                      <span className="text-xs sm:text-sm text-indigo-600 bg-indigo-50 px-2 sm:px-3 py-1 rounded">
+                      <span className="result-chip text-xs sm:text-sm text-indigo-600 bg-indigo-50 px-3 py-2 rounded-lg">
                         💰 {result.price_range}
                       </span>
                     )}
@@ -329,4 +385,3 @@ const RouletteGame = ({ menus, dailyRecommendations, includeDaily, weather, loca
 };
 
 export default RouletteGame;
-
