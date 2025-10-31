@@ -13,7 +13,7 @@ class AIService:
         # Gemini API 설정
         api_key = os.getenv(
             "GEMINI_API_KEY",
-            "AIzaSyC-xGiEnimi1OO58ldgySzpSmn2wM5Je8g"
+            "AIzaSyCq5Z9rswz4FMMuAmQIKaEf4XCcRKkvuO4"
         )
 
         if api_key:

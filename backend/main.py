@@ -1,10 +1,11 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 import uvicorn
 from services.weather_service import WeatherService
 from services.ai_service import AIService
+from services.ocr_service import ocr_service
 
 app = FastAPI(
     title="AI 점심 메뉴 추천 API",
@@ -43,10 +44,11 @@ class RecommendRequest(BaseModel):
 
 class CafeteriaMenuRequest(BaseModel):
     location: str = "서울"
-    cafeteria_menu: str  # 구내식당 메뉴 (텍스트)
+    cafeteria_menu: Optional[str] = None  # 구내식당 메뉴 (텍스트, 선택)
+    image_data: Optional[str] = None  # Base64 인코딩된 이미지 (선택)
     user_location: Optional[Dict] = None  # 위도, 경도
     prefer_external: bool = True  # 외부식당 선호 (CAM 모드)
-    daily_menus: Optional[list] = None  # 오늘의 추천 메뉴 리스트 (중복 체크용)
+    daily_menus: Optional[List[Dict]] = None  # 오늘의 추천 메뉴 리스트 (중복 체크용)
 
 class RecipeRequest(BaseModel):
     menu_name: str
@@ -102,7 +104,7 @@ async def recommend_menu(request: RecommendRequest):
 
 @app.post("/api/recommend-from-cafeteria")
 async def recommend_from_cafeteria(request: CafeteriaMenuRequest):
-    """구내식당 메뉴 기반 외부 메뉴 추천 (고급 프롬프트 시스템 + CAM 모드)"""
+    """구내식당 메뉴 기반 외부 메뉴 추천 (텍스트 or 이미지 OCR)"""
     try:
         # 1. 날씨 정보 가져오기 (사용자 좌표가 있으면 우선 사용)
         lat = None
@@ -118,19 +120,54 @@ async def recommend_from_cafeteria(request: CafeteriaMenuRequest):
             lng=lng
         )
         
-        # 2. 구내식당 메뉴 기반 추천 (CAM 모드 지원 + 오늘의 메뉴 중복 체크)
+        # 2. 메뉴 텍스트 결정 (이미지 OCR or 텍스트)
+        menu_text = request.cafeteria_menu
+        ocr_confidence = None
+        
+        if request.image_data:
+            print("📸 이미지에서 메뉴 추출 중...")
+            # OCR 서비스로 이미지 처리
+            ocr_result = await ocr_service.extract_menu_from_image(
+                request.image_data,
+                fallback_text=request.cafeteria_menu  # 보조 텍스트
+            )
+            
+            # OCR 결과 검증
+            is_valid, error_msg = ocr_service.validate_menu_extraction(ocr_result)
+            
+            if not is_valid:
+                raise HTTPException(status_code=400, detail=error_msg)
+            
+            menu_text = ocr_result["menu_text"]
+            ocr_confidence = ocr_result["confidence"]
+            print(f"✅ OCR 완료: {menu_text[:50]}... (신뢰도: {ocr_confidence})")
+        
+        elif not menu_text:
+            raise HTTPException(
+                status_code=400, 
+                detail="메뉴 텍스트 또는 이미지를 제공해주세요."
+            )
+        
+        # 3. AI 추천 생성 (CAM 모드 지원 + 오늘의 메뉴 중복 체크)
         recommendation = await ai_service.recommend_from_cafeteria_menu(
             weather_data,
-            request.cafeteria_menu,
+            menu_text,
             request.user_location,
             request.prefer_external,  # CAM 모드 전달
             request.daily_menus  # 오늘의 메뉴 전달
         )
         
+        # OCR 신뢰도 정보 추가
+        if ocr_confidence:
+            recommendation["ocr_confidence"] = ocr_confidence
+            recommendation["extracted_menu"] = menu_text
+        
         return {
             "success": True,
             "data": recommendation
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

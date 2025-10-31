@@ -54,12 +54,17 @@ const CafeteriaInput = ({ onSubmit, onValidationError, onBack, weather, location
       return;
     }
     setImageFile(file);
-    // 파일명에서 메뉴 추출 시도
-    const name = file.name.replace(/\.[^.]+$/, '');
-    const guess = name.replace(/[_.-]+/g, ', ');
-    const merged = [...new Set([...parseMenus(menuText), ...parseMenus(guess)])];
-    setMenuText(merged.join(', '));
-    setMenuList(merged);
+    // 이미지가 선택되면 파일명은 무시하고 OCR로 처리
+    // 기존 텍스트는 fallback으로 유지
+  };
+
+  // 이미지 제거
+  const handleRemoveImage = (e) => {
+    e.stopPropagation();
+    setImageFile(null);
+    // 파일 input 초기화
+    const fileInput = document.getElementById('file-input');
+    if (fileInput) fileInput.value = '';
   };
 
   // 제출
@@ -75,8 +80,20 @@ const CafeteriaInput = ({ onSubmit, onValidationError, onBack, weather, location
       return;
     }
     
-    // 검증 성공 시 제출
-    if (menuText.trim()) {
+    // 이미지가 있으면 이미지 우선, 없으면 텍스트
+    if (imageFile) {
+      // 이미지를 Base64로 인코딩
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        onSubmit({ 
+          method: 'image', 
+          imageData: reader.result,
+          textFallback: menuText  // OCR 실패 시 대체 텍스트
+        });
+      };
+      reader.readAsDataURL(imageFile);
+    } else if (menuText.trim()) {
+      // 텍스트만 제출
       onSubmit({ method: 'text', content: menuText });
     }
   };
@@ -155,7 +172,23 @@ const CafeteriaInput = ({ onSubmit, onValidationError, onBack, weather, location
                     <span className="text-slate-400">JPG, PNG 파일 (최대 5MB)</span>
                   </p>
                   {imageFile && (
-                    <p className="mt-2 text-xs text-green-600 truncate px-2">✓ {imageFile.name}</p>
+                    <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3 relative">
+                      <button
+                        onClick={handleRemoveImage}
+                        className="absolute top-2 right-2 text-green-600 hover:text-green-800 hover:bg-green-100 rounded-full p-1"
+                        title="이미지 제거"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                      <p className="text-xs sm:text-sm text-green-700 font-medium pr-6">
+                        ✓ 이미지가 업로드되었습니다
+                      </p>
+                      <p className="text-xs text-green-600 mt-1">
+                        AI가 자동으로 메뉴를 인식합니다
+                      </p>
+                    </div>
                   )}
                   <input
                     id="file-input"
@@ -218,7 +251,7 @@ const CafeteriaInput = ({ onSubmit, onValidationError, onBack, weather, location
           <div className="mt-6 sm:mt-8 flex flex-wrap items-center justify-center gap-3">
             <button
               onClick={handleRecommend}
-              disabled={!menuText.trim()}
+              disabled={!menuText.trim() && !imageFile}
               className="btn-primary inline-flex items-center gap-2 rounded-xl px-5 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-[15px] font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
             >
               <span>메뉴 추천받기</span> <span>🎯</span>

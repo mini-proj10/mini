@@ -226,7 +226,6 @@ function App() {
   const handleMenuInput = async (input) => {
     setLoading(true);
     setError(null);
-    setCafeteriaMenu(input.content);
 
     try {
       // 오늘의 메뉴를 전달 (중복 체크용)
@@ -234,10 +233,11 @@ function App() {
       
       const response = await cafeteriaAPI.getRecommendation(
         location,
-        input.content,
+        input.method === 'text' ? input.content : input.textFallback || '',
         userCoords,
         true,  // preferExternal
-        dailyMenusForCheck  // 오늘의 메뉴 전달
+        dailyMenusForCheck,  // 오늘의 메뉴 전달
+        input.method === 'image' ? input.imageData : null  // 이미지 데이터
       );
       
       // 검증 실패 응답 처리
@@ -252,13 +252,27 @@ function App() {
         }
       }
       
+      // OCR로 추출된 메뉴 표시
+      if (response.data.ocr_confidence) {
+        console.log('📸 OCR 신뢰도:', response.data.ocr_confidence);
+        console.log('📋 추출된 메뉴:', response.data.extracted_menu);
+      }
+      
+      // 입력된 메뉴 저장
+      setCafeteriaMenu(
+        input.method === 'image' 
+          ? (response.data.extracted_menu || '이미지로 업로드된 메뉴')
+          : input.content
+      );
+      
       setRecommendation(response.data);
       
       // 구내식당 메뉴 입력 후 오늘의 메뉴를 구내식당 메뉴와 연관 낮은 메뉴로 재생성
       try {
+        const menuForRefresh = input.method === 'text' ? input.content : (response.data.extracted_menu || input.textFallback || '');
         const refreshedDailyMenus = await dailyRecommendationsAPI.refreshDailyRecommendations(
           location,
-          input.content,
+          menuForRefresh,
           userCoords
         );
         if (refreshedDailyMenus.success) {
@@ -272,8 +286,10 @@ function App() {
       
       setCurrentPage('result');
     } catch (err) {
-      setError('추천을 가져오는데 실패했습니다.');
-      console.error(err);
+      // 에러 메시지 처리
+      const errorMessage = err.response?.data?.detail || '추천을 가져오는데 실패했습니다.';
+      setError(errorMessage);
+      console.error('❌ 메뉴 추천 실패:', err);
     } finally {
       setLoading(false);
     }
@@ -368,7 +384,8 @@ function App() {
   // Landing 화면
   if (currentPage === 'landing') {
     return (
-      <div className="min-h-screen flex items-center justify-center relative px-4">
+      <div className="min-h-screen relative flex flex-col lg:flex-row items-center justify-center px-4 py-8 gap-6">
+        {/* 메인 콘텐츠 - 시작하기 카드 */}
         <div className="glass rounded-3xl p-6 sm:p-10 md:p-14 shadow-2xl w-full max-w-2xl">
           <div className="mx-auto text-center">
             <div className="mx-auto mb-4 sm:mb-6 flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500 to-amber-400 shadow-lg">
@@ -389,7 +406,9 @@ function App() {
             </button>
           </div>
         </div>
-        <div className="absolute right-2 bottom-2 sm:right-4 sm:bottom-4">
+        
+        {/* ManualLocationSelector - 모바일: 시작하기 밑, 데스크톱: 오른쪽 */}
+        <div className="w-full max-w-2xl lg:max-w-md flex-shrink-0">
           <ManualLocationSelector
             weather={weather}
             location={location}

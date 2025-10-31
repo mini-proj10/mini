@@ -180,17 +180,17 @@ const RouletteGame = ({ menus, dailyRecommendations, includeDaily, weather, loca
             </div>
 
             {/* 룰렛 컨테이너 */}
-            <div className="glass rounded-xl shadow-lg p-6 sm:p-8 mb-4">
-              <div className="relative flex items-center justify-center">
+            <div className="glass rounded-xl shadow-lg p-4 sm:p-6 md:p-8 mb-4">
+              <div className="relative flex items-center justify-center min-h-[320px] sm:min-h-[400px] md:min-h-[480px] lg:min-h-[540px]">
                 {/* 화살표 포인터 */}
-                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-4 sm:-translate-y-5 z-10">
-                  <div className="w-0 h-0 border-l-[20px] sm:border-l-[25px] border-r-[20px] sm:border-r-[25px] border-t-[40px] sm:border-t-[50px] border-l-transparent border-r-transparent border-t-yellow-400 drop-shadow-lg"></div>
+                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-3 sm:-translate-y-4 z-10">
+                  <div className="w-0 h-0 border-l-[18px] sm:border-l-[22px] md:border-l-[25px] border-r-[18px] sm:border-r-[22px] md:border-r-[25px] border-t-[36px] sm:border-t-[44px] md:border-t-[50px] border-l-transparent border-r-transparent border-t-yellow-400 drop-shadow-lg"></div>
                 </div>
 
-                {/* 룰렛 휠 */}
-                <div className="relative w-80 h-80 sm:w-96 sm:h-96 md:w-[28rem] md:h-[28rem] lg:w-[32rem] lg:h-[32rem]">
+                {/* 룰렛 휠 - aspect-square로 정확한 원형 유지 */}
+                <div className="relative w-full max-w-[280px] sm:max-w-[360px] md:max-w-[440px] lg:max-w-[500px] aspect-square mx-auto">
                   <div
-                    className="w-full h-full rounded-full shadow-2xl transition-transform duration-[4000ms] ease-out overflow-hidden"
+                    className="absolute inset-0 rounded-full shadow-2xl transition-transform duration-[4000ms] ease-out overflow-hidden"
                     style={{
                       transform: `rotate(${rotation}deg)`
                     }}
@@ -214,6 +214,12 @@ const RouletteGame = ({ menus, dailyRecommendations, includeDaily, weather, loca
                         points.push(`${x}% ${y}%`);
                       }
 
+                      // 텍스트 위치 계산 (원의 중심에서 외곽으로)
+                      const textAngle = startAngle + degreePerItem / 2;
+                      const textRadius = 35; // 중심에서 텍스트까지의 거리 (%)
+                      const textX = 50 + textRadius * Math.cos((textAngle - 90) * Math.PI / 180);
+                      const textY = 50 + textRadius * Math.sin((textAngle - 90) * Math.PI / 180);
+
                       return (
                         <div
                           key={index}
@@ -223,12 +229,12 @@ const RouletteGame = ({ menus, dailyRecommendations, includeDaily, weather, loca
                           }}
                         >
                           <div
-                            className="absolute text-white font-bold text-xs sm:text-base md:text-lg lg:text-xl drop-shadow-lg whitespace-nowrap"
+                            className="absolute text-white font-bold text-[10px] sm:text-xs md:text-sm lg:text-base drop-shadow-lg whitespace-nowrap"
                             style={{
-                              top: '50%',
-                              left: '50%',
-                              transform: `rotate(${startAngle + degreePerItem / 2}deg) translate(-50%, -180px) scale(0.9)`,
-                              transformOrigin: '0 0'
+                              left: `${textX}%`,
+                              top: `${textY}%`,
+                              transform: `translate(-50%, -50%) rotate(${textAngle}deg)`,
+                              transformOrigin: 'center'
                             }}
                           >
                             {menu.menu_name || menu.display_name || menu.menu}
@@ -238,8 +244,8 @@ const RouletteGame = ({ menus, dailyRecommendations, includeDaily, weather, loca
                     })}
 
                     {/* 중앙 원 */}
-                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-white rounded-full shadow-lg border-3 sm:border-4 md:border-[5px] border-gray-300 flex items-center justify-center">
-                      <span className="text-2xl sm:text-3xl md:text-4xl">🍽️</span>
+                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-14 h-14 sm:w-18 sm:h-18 md:w-22 md:h-22 lg:w-24 lg:h-24 bg-white rounded-full shadow-lg border-[3px] sm:border-4 md:border-[5px] border-gray-300 flex items-center justify-center">
+                      <span className="text-xl sm:text-2xl md:text-3xl lg:text-4xl">🍽️</span>
                     </div>
                   </div>
                 </div>

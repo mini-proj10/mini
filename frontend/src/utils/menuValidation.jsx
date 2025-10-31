@@ -88,21 +88,16 @@ export function validateMenuTokens(rawText, hasImage = false) {
   const tokens = normalizeAndSplit(rawText);
   const valids = tokens.filter(isValidMenuToken);
 
-
-  // (1) 이미지만 있는 경우
-
+  // (1) 이미지만 있는 경우 - OCR로 처리하므로 통과
   if (tokens.length === 0 && hasImage) {
     return {
-      ok: false,
-      title: "이미지만으로는 분석할 수 없어요",
-      desc: "현재 데모는 OCR을 지원하지 않습니다. 메뉴명을 텍스트로 입력해주세요. 예: 김치찌개, 파스타, 초밥",
-      tokens, valids,
+      ok: true,
+      tokens,
+      valids,
     };
   }
 
-
   // (2) 텍스트는 있는데 다 음식이 아닌 경우
-
   if (tokens.length > 0 && valids.length === 0) {
     return {
       ok: false,
@@ -112,9 +107,7 @@ export function validateMenuTokens(rawText, hasImage = false) {
     };
   }
 
-
   // (3) 이미지도 없고 텍스트도 유효한 게 없는 경우
-
   if (!hasImage && valids.length === 0) {
     return {
       ok: false,

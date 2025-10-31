@@ -38,14 +38,23 @@ export const recipeAPI = {
 };
 
 export const cafeteriaAPI = {
-  getRecommendation: async (location, cafeteriaMenu, userLocation = null, preferExternal = true, dailyMenus = null) => {
-    const response = await api.post('/api/recommend-from-cafeteria', {
+  getRecommendation: async (location, cafeteriaMenu, userLocation = null, preferExternal = true, dailyMenus = null, imageData = null) => {
+    const payload = {
       location,
-      cafeteria_menu: cafeteriaMenu,
       user_location: userLocation,
       prefer_external: preferExternal,  // CAM 모드 활성화
       daily_menus: dailyMenus  // 오늘의 메뉴 전달
-    });
+    };
+    
+    // 이미지 또는 텍스트
+    if (imageData) {
+      payload.image_data = imageData;
+      payload.cafeteria_menu = cafeteriaMenu;  // fallback 텍스트
+    } else {
+      payload.cafeteria_menu = cafeteriaMenu;
+    }
+    
+    const response = await api.post('/api/recommend-from-cafeteria', payload);
     return response.data;
   },
 };

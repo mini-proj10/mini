@@ -72,7 +72,7 @@ export default function ManualLocationSelector({ onResolved, weather, location }
     <div className="space-y-2">
       {/* 날씨 + 주소 박스 */}
       {weather && (
-        <div className="glass rounded-lg sm:rounded-xl shadow-lg p-2 sm:p-3 w-80">
+        <div className="glass rounded-lg sm:rounded-xl shadow-lg p-2 sm:p-3 w-full max-w-xs sm:max-w-sm">
           <div className="flex items-center gap-2 sm:gap-3">
             <div className="h-7 w-7 sm:h-9 sm:w-9 rounded-lg sm:rounded-xl bg-yellow-300/80 flex items-center justify-center flex-shrink-0">
               <span className="text-base sm:text-xl">
@@ -93,7 +93,7 @@ export default function ManualLocationSelector({ onResolved, weather, location }
       )}
       
       {/* 수동 위치 설정 */}
-      <div className="glass rounded-xl p-4 shadow-md w-80">
+      <div className="glass rounded-xl p-4 shadow-md w-full max-w-xs sm:max-w-sm">
         <div className="text-left text-sm font-semibold mb-2">수동 위치 설정</div>
         <div className="grid grid-cols-1 gap-2">
         <div>
