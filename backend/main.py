@@ -46,6 +46,7 @@ class CafeteriaMenuRequest(BaseModel):
     cafeteria_menu: str  # 구내식당 메뉴 (텍스트)
     user_location: Optional[Dict] = None  # 위도, 경도
     prefer_external: bool = True  # 외부식당 선호 (CAM 모드)
+    daily_menus: Optional[list] = None  # 오늘의 추천 메뉴 리스트 (중복 체크용)
 
 class RecipeRequest(BaseModel):
     menu_name: str
@@ -117,12 +118,13 @@ async def recommend_from_cafeteria(request: CafeteriaMenuRequest):
             lng=lng
         )
         
-        # 2. 구내식당 메뉴 기반 추천 (CAM 모드 지원)
+        # 2. 구내식당 메뉴 기반 추천 (CAM 모드 지원 + 오늘의 메뉴 중복 체크)
         recommendation = await ai_service.recommend_from_cafeteria_menu(
             weather_data,
             request.cafeteria_menu,
             request.user_location,
-            request.prefer_external  # CAM 모드 전달
+            request.prefer_external,  # CAM 모드 전달
+            request.daily_menus  # 오늘의 메뉴 전달
         )
         
         return {
@@ -178,6 +180,37 @@ async def get_daily_recommendations(location: str = "서울", lat: Optional[floa
         
         # 2. AI 오늘의 추천 메뉴 생성
         recommendations = await ai_service.get_daily_recommendations(weather_data, location)
+        
+        return {
+            "success": True,
+            "data": recommendations
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/daily-recommendations-refresh")
+async def refresh_daily_recommendations(request: CafeteriaMenuRequest):
+    """구내식당 메뉴와 연관 낮은 오늘의 메뉴 재생성"""
+    try:
+        # 1. 날씨 정보 가져오기
+        lat = None
+        lng = None
+        if request.user_location:
+            lat = request.user_location.get('latitude')
+            lng = request.user_location.get('longitude')
+        
+        weather_data = await weather_service.get_weather(
+            request.location,
+            lat=lat,
+            lng=lng
+        )
+        
+        # 2. 구내식당 메뉴와 연관 낮은 오늘의 메뉴 생성
+        recommendations = await ai_service.get_daily_recommendations_with_exclusion(
+            weather_data,
+            request.location,
+            request.cafeteria_menu
+        )
         
         return {
             "success": True,

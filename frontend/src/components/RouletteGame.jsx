@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import html2canvas from 'html2canvas';
 import { fixOklchColors } from '../utils/html2canvasSafeColors';
 
+
 const RouletteGame = ({ menus, dailyRecommendations, includeDaily, weather, location, onResult, onBack }) => {
   const [isSpinning, setIsSpinning] = useState(false);
   const [rotation, setRotation] = useState(0);

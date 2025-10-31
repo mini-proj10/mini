@@ -565,4 +565,3 @@ const RestaurantPage = ({ menuName, weather, location, userCoords, onBack }) => 
 };
 
 export default RestaurantPage;
-
