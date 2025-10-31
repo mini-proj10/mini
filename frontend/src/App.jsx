@@ -89,17 +89,29 @@ function App() {
       }
       
       const imageUrl = `/images/weather/${imageName}`;
-      console.log('✅ 배경 이미지 적용:', imageUrl);
       
-      setBackgroundPhoto(imageUrl);
-      document.body.style.backgroundImage = `url(${imageUrl})`;
-      document.body.style.backgroundSize = 'cover';
-      document.body.style.backgroundPosition = 'center';
-      document.body.style.backgroundRepeat = 'no-repeat';
-      document.body.style.backgroundAttachment = 'fixed';
+      // 이미지가 실제로 로드되는지 확인
+      const img = new Image();
+      img.onload = () => {
+        console.log('✅ 배경 이미지 로드 성공:', imageUrl);
+        setBackgroundPhoto(imageUrl);
+        document.body.style.backgroundImage = `url(${imageUrl})`;
+        document.body.style.backgroundSize = 'cover';
+        document.body.style.backgroundPosition = 'center';
+        document.body.style.backgroundRepeat = 'no-repeat';
+        document.body.style.backgroundAttachment = 'fixed';
+      };
+      img.onerror = () => {
+        console.warn('⚠️ 배경 이미지 로드 실패:', imageUrl, '- 기본값 사용');
+        // 이미지 로드 실패 시 기본 그라디언트 배경 사용
+        document.body.style.backgroundImage = 'none';
+        document.body.style.backgroundColor = 'transparent';
+      };
+      img.src = imageUrl;
     } catch (error) {
       console.error('❌ 배경 이미지 설정 실패:', error);
       document.body.style.backgroundImage = 'none';
+      document.body.style.backgroundColor = 'transparent';
     }
   };
 
@@ -121,13 +133,19 @@ function App() {
   // 카카오 API로 좌표를 주소로 변환
   const getAddressFromCoords = async (latitude, longitude) => {
     try {
-      const KAKAO_API_KEY = 'ef42433f3c101ffeb3d1bae45a775180'; // 기본 키 (사용자가 교체 가능)
+      const KAKAO_API_KEY = import.meta.env.VITE_KAKAO_REST_KEY;
+
+      if (!KAKAO_API_KEY) {
+        console.error('❌ VITE_KAKAO_API_KEY가 없습니다. .env 확인하세요.');
+        return '서울시';
+      }
+
       const response = await fetch(
         `https://dapi.kakao.com/v2/local/geo/coord2address.json?x=${longitude}&y=${latitude}`,
         {
           headers: {
-            'Authorization': `KakaoAK ${KAKAO_API_KEY}`
-          }
+            Authorization: `KakaoAK ${KAKAO_API_KEY}`,
+          },
         }
       );
       

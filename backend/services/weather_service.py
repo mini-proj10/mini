@@ -1,7 +1,6 @@
 import httpx
 from typing import Dict, Optional
 from datetime import datetime
-import os
 from dotenv import load_dotenv
 
 load_dotenv()

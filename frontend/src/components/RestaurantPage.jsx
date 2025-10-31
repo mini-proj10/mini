@@ -26,7 +26,8 @@ const RestaurantPage = ({ menuName, weather, location, userCoords, onBack }) => 
 
   useEffect(() => {
     // 카카오맵 API 스크립트 로드
-    const KAKAO_API_KEY = import.meta.env.VITE_KAKAO_API_KEY;
+    const KAKAO_API_KEY = import.meta.env.VITE_KAKAO_JS_KEY;
+
 
     if (!KAKAO_API_KEY) {
       console.error("❌ VITE_KAKAO_API_KEY가 설정되지 않았습니다. .env 파일을 확인하세요.");
