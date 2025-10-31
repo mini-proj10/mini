@@ -114,7 +114,7 @@ const RestaurantPage = ({ menuName, weather, location, userCoords, onBack }) => 
         const startPos = new window.kakao.maps.LatLng(base.lat, base.lng);
         const startMarker = new window.kakao.maps.Marker({ position: startPos, map });
         const startInfo = new window.kakao.maps.InfoWindow({
-          content: '<div style="padding:5px;font-size:12px;color:#1F2937;">📍 선택한 위치</div>'
+          content: '<div style="padding:5px;font-size:12px;color:#1F2937;">선택한 위치</div>'
         });
         startInfo.open(map, startMarker);
       } else {
@@ -344,7 +344,12 @@ const RestaurantPage = ({ menuName, weather, location, userCoords, onBack }) => 
                         </span>
                       </div>
                       <div className="min-w-0">
-                        <div className="text-[11px] sm:text-[13px] text-slate-500">현재 위치</div>
+                        <div className="flex items-center gap-1">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3 text-slate-500">
+                            <path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7Zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5Z"/>
+                          </svg>
+                          <span className="text-[11px] sm:text-[13px] text-slate-500">현재 위치</span>
+                        </div>
                         <div className="font-semibold text-xs sm:text-sm truncate">{location || weather.location}</div>
                       </div>
                       <div className="chip rounded-lg sm:rounded-xl px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium text-slate-700 flex-shrink-0">
@@ -361,9 +366,16 @@ const RestaurantPage = ({ menuName, weather, location, userCoords, onBack }) => 
               <div className="glass rounded-xl shadow-lg p-4 sm:p-5">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex-1">
-                    <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-1">
-                      🗺️ {menuNameStr} 맛집 찾기
-                    </h1>
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-fuchsia-500 to-amber-400 flex items-center justify-center flex-shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" className="w-5 h-5 sm:w-6 sm:h-6">
+                          <path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7Zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5Z"/>
+                        </svg>
+                      </div>
+                      <h1 className="text-2xl sm:text-3xl font-bold text-slate-800">
+                        {menuNameStr} 맛집 찾기
+                      </h1>
+                    </div>
                     <p className="text-slate-600 text-sm sm:text-base">
                       주변 2km 반경 내 음식점 {restaurants.length}곳
                     </p>
@@ -409,7 +421,7 @@ const RestaurantPage = ({ menuName, weather, location, userCoords, onBack }) => 
                             : 'bg-white/50 hover:bg-white/80'
                         }`}
                       >
-                        📍 거리순
+                        거리순
                       </button>
                       <button
                         onClick={() => setSortBy('review')}
@@ -454,11 +466,11 @@ const RestaurantPage = ({ menuName, weather, location, userCoords, onBack }) => 
                             
                             <div className="flex items-center justify-between">
                               <span className="text-xs text-indigo-600 font-medium">
-                                📍 {restaurant.distance.toFixed(2)}km
+                                {restaurant.distance.toFixed(2)}km
                               </span>
                               {restaurant.phone && (
                                 <span className="text-xs text-slate-600">
-                                  📞 {restaurant.phone}
+                                  {restaurant.phone}
                                 </span>
                               )}
                             </div>
@@ -477,7 +489,7 @@ const RestaurantPage = ({ menuName, weather, location, userCoords, onBack }) => 
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                   </svg>
                   <span className="text-xs sm:text-sm text-slate-700">
-                    <strong>📍 현재 위치 기반:</strong> 주변 2km 반경 내 음식점을 표시합니다.
+                    <strong>현재 위치 기반:</strong> 주변 2km 반경 내 음식점을 표시합니다.
                   </span>
                 </div>
                 
@@ -486,7 +498,7 @@ const RestaurantPage = ({ menuName, weather, location, userCoords, onBack }) => 
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <span className="text-xs sm:text-sm text-slate-700">
-                    <strong>💡 Tip:</strong> 음식점을 클릭하면 지도에서 위치를 확인할 수 있습니다.
+                    <strong>Tip:</strong> 음식점을 클릭하면 지도에서 위치를 확인할 수 있습니다.
                   </span>
                 </div>
               </div>

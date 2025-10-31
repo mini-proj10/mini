@@ -78,7 +78,9 @@ export default function ManualLocationSelector({ onResolved, weather, location }
               <span className="text-base sm:text-xl">
                 {weather.sky_condition === '맑음' ? '☀️' : 
                  weather.sky_condition === '구름많음' ? '⛅' : 
-                 weather.sky_condition === '흐림' ? '☁️' : '🌤️'}
+                 weather.sky_condition === '흐림' ? '☁️' : 
+                 weather.sky_condition === '비' ? '🌧️' : 
+                 weather.sky_condition === '눈' ? '❄️' : '🌤️'}
               </span>
             </div>
             <div className="min-w-0 flex-1">

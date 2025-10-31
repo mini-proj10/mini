@@ -49,19 +49,19 @@ const CafeteriaResult = ({ recommendation, weather, location, onSelectMenu, onSh
 
   const getTypeEmoji = (type) => {
     // 새 스키마와 기존 스키마 모두 지원
-    if (type.includes('상위')) return '⭐';
-    if (type.includes('대체')) return '🍽️';
-    if (type.includes('예외')) return '🌤️';
+    if (type.includes('상위')) return 'PREMIUM';
+    if (type.includes('대체')) return 'ALT';
+    if (type.includes('예외')) return 'BONUS';
     
     switch (type) {
       case '상위호환':
-        return '⭐';
+        return 'PREMIUM';
       case '비슷한카테고리':
-        return '🍽️';
+        return 'ALT';
       case '날씨기반':
-        return '🌤️';
+        return 'BONUS';
       default:
-        return '🍴';
+        return '';
     }
   };
 
@@ -71,9 +71,12 @@ const CafeteriaResult = ({ recommendation, weather, location, onSelectMenu, onSh
       {showRouletteModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="glass rounded-2xl shadow-2xl max-w-md w-full p-6 sm:p-8">
-            <h2 className="text-xl sm:text-2xl font-bold text-slate-800 mb-4">
-              🎰 룰렛 모드 선택
-            </h2>
+            <div className="flex items-center gap-2 mb-4">
+              <img src="/images/emoge/lulet.png" alt="roulette" className="w-8 h-8 sm:w-10 sm:h-10 object-contain" />
+              <h2 className="text-xl sm:text-2xl font-bold text-slate-800">
+                룰렛 모드 선택
+              </h2>
+            </div>
             <p className="text-sm text-slate-600 mb-6">
               어떤 메뉴로 룰렛을 돌릴까요?
             </p>
@@ -84,7 +87,6 @@ const CafeteriaResult = ({ recommendation, weather, location, onSelectMenu, onSh
                 className="w-full glass rounded-xl p-4 hover:bg-white/90 transition-all text-left group"
               >
                 <div className="flex items-center gap-3">
-                  <div className="text-2xl">🎯</div>
                   <div className="flex-1">
                     <div className="font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">
                       추천 메뉴만 (3개)
@@ -101,7 +103,6 @@ const CafeteriaResult = ({ recommendation, weather, location, onSelectMenu, onSh
                 className="w-full glass rounded-xl p-4 hover:bg-white/90 transition-all text-left group"
               >
                 <div className="flex items-center gap-3">
-                  <div className="text-2xl">🍽️</div>
                   <div className="flex-1">
                     <div className="font-bold text-slate-800 group-hover:text-indigo-600 transition-colors">
                       오늘의 메뉴 포함 (6개)
@@ -163,9 +164,12 @@ const CafeteriaResult = ({ recommendation, weather, location, onSelectMenu, onSh
         {/* 메인 헤더 박스 */}
         <div className="w-full pb-6">
           <div className="glass rounded-xl shadow-lg p-4 sm:p-4">
-            <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 mb-1.5">
-              🎯 AI 메뉴 추천
-            </h1>
+            <div className="flex items-center gap-2 mb-1.5">
+              <img src="/images/emoge/aibot.png" alt="AI bot" className="w-7 h-7 sm:w-8 sm:h-8 object-contain" />
+              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800">
+                AI 메뉴 추천
+              </h1>
+            </div>
             <p className="text-xs sm:text-sm text-slate-600">
               <span className="font-medium">오늘 구내식당:</span> {cafeteria_menu}
             </p>
@@ -187,7 +191,7 @@ const CafeteriaResult = ({ recommendation, weather, location, onSelectMenu, onSh
                 {/* 상단: 타입 배지와 체크 */}
                 <div className="flex items-center justify-between mb-4">
                   <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-white bg-gradient-to-r ${getTypeColor(item.type)}`}>
-                    {getTypeEmoji(item.type)} {item.type}
+                    {item.type}
                   </span>
                   {(selectedMenu?.menu_name === item.menu_name || selectedMenu?.menu === item.menu) && (
                     <div className="text-indigo-500 text-xl font-bold">✓</div>
@@ -202,7 +206,7 @@ const CafeteriaResult = ({ recommendation, weather, location, onSelectMenu, onSh
                 {/* 식당명 */}
                 {item.restaurant_name && (
                   <div className="text-xs text-slate-500 mb-3 truncate">
-                    📍 {item.restaurant_name}
+                    {item.restaurant_name}
                   </div>
                 )}
                 
@@ -210,12 +214,12 @@ const CafeteriaResult = ({ recommendation, weather, location, onSelectMenu, onSh
                 <div className="flex gap-2 flex-wrap mb-4">
                   {(item.minutes_away || item.distance?.walking_min) && (
                     <span className="text-xs text-slate-600 bg-slate-100 px-2 py-1 rounded">
-                      🚶 {item.minutes_away || item.distance.walking_min}분
+                      {item.minutes_away || item.distance.walking_min}분
                     </span>
                   )}
                   {item.price_range && (
                     <span className="text-xs text-indigo-600 bg-indigo-50 px-2 py-1 rounded">
-                      💰 {item.price_range}
+                      {item.price_range}
                     </span>
                   )}
                 </div>
@@ -233,8 +237,8 @@ const CafeteriaResult = ({ recommendation, weather, location, onSelectMenu, onSh
         <div className="space-y-4">
           {!selectedMenu && (
             <div className="text-center">
-              <p className="text-sm text-slate-600">
-                💡 메뉴를 클릭해서 선택하거나, 룰렛으로 운에 맡겨보세요!
+              <p className="text-sm text-slate-900 font-medium">
+                메뉴를 클릭해서 선택하거나, 룰렛으로 운에 맡겨보세요
               </p>
             </div>
           )}
@@ -242,9 +246,10 @@ const CafeteriaResult = ({ recommendation, weather, location, onSelectMenu, onSh
           <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-center">
             <button
               onClick={handleRouletteClick}
-              className="glass rounded-xl px-6 py-3 text-sm font-semibold hover:bg-white/90 transition-all w-full sm:w-auto"
+              className="w-full sm:w-auto bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-2 sm:py-2.5 px-4 rounded-lg transition-all shadow-md hover:shadow-lg text-sm flex items-center justify-center gap-2"
             >
-              🎰 룰렛으로 결정하기
+              <img src="/images/emoge/lulet.png" alt="roulette" className="w-5 h-5 object-contain" />
+              룰렛으로 결정하기
             </button>
             
             <button
@@ -254,7 +259,7 @@ const CafeteriaResult = ({ recommendation, weather, location, onSelectMenu, onSh
             >
               {selectedMenu ? (
                 <span className="truncate">
-                  {selectedMenu.menu_name || selectedMenu.display_name || selectedMenu.menu} 주변 식당 찾기 🔍
+                  {selectedMenu.menu_name || selectedMenu.display_name || selectedMenu.menu} 주변 식당 찾기
                 </span>
               ) : (
                 '메뉴를 선택해주세요'

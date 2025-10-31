@@ -224,10 +224,15 @@ const RouletteGame = ({ menus, dailyRecommendations, includeDaily, weather, loca
             {/* 헤더 박스 */}
             <div className="w-full pb-4">
               <div className="glass rounded-xl shadow-lg p-4 sm:p-5 text-center">
-                <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-800 mb-1">
-                  🎰 밥뭇나?! 룰렛
-                </h1>
-                <p className="text-slate-600 text-xs sm:text-sm md:text-base">운명에 맡겨보세요!</p>
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <img src="/images/emoge/lulet.png" alt="roulette" className="w-12 h-12 sm:w-14 sm:h-14 object-contain" />
+                  <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-800">
+                    룰렛
+                  </h1>
+                </div>
+                <p className="text-slate-600 text-xs sm:text-sm md:text-base">
+                  운명에 맡겨보세요!
+                </p>
               </div>
             </div>
 
@@ -291,7 +296,7 @@ const RouletteGame = ({ menus, dailyRecommendations, includeDaily, weather, loca
 
                     {/* 중앙 원 */}
                     <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-14 h-14 sm:w-18 sm:h-18 md:w-22 md:h-22 lg:w-24 lg:h-24 bg-white rounded-full shadow-lg border-[3px] sm:border-4 md:border-[5px] border-gray-300 flex items-center justify-center">
-                      <span className="text-xl sm:text-2xl md:text-3xl lg:text-4xl">🍽️</span>
+                      <img src="/images/emoge/lulet.png" alt="roulette" className="w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 object-contain" />
                     </div>
                   </div>
                 </div>
@@ -300,28 +305,25 @@ const RouletteGame = ({ menus, dailyRecommendations, includeDaily, weather, loca
 
             {/* 버튼 또는 결과 */}
             {!result ? (
-              <div className="text-center mb-4 ">
+              <div className="flex justify-center mb-4">
                 <button
                   onClick={spin}
                   disabled={isSpinning}
-                  className="btn-primary rounded-xl text-base sm:text-lg md:text-xl px-8 sm:px-10 py-3 sm:py-4 disabled:opacity-50 w-full sm:w-auto"
+                  className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-2 sm:py-2.5 px-4 rounded-lg transition-all shadow-md hover:shadow-lg text-sm sm:text-base flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {isSpinning ? (
                     <>
-                      <svg
-                        className="spinner h-5 w-5 sm:h-6 sm:w-6 inline-block mr-2"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                      >
+                      <svg className="spinner h-5 w-5 sm:h-6 sm:w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                         <circle cx="12" cy="12" r="10" opacity=".2"></circle>
                         <path d="M12 2a10 10 0 0 1 10 10"></path>
                       </svg>
                       돌리는 중...
                     </>
                   ) : (
-                    '🎲 룰렛 돌리기!'
+                    <>
+                      <img src="/images/emoge/lulet.png" alt="roulette" className="w-5 h-5 sm:w-6 sm:h-6 object-contain" />
+                      룰렛 돌리기
+                    </>
                   )}
                 </button>
               </div>
@@ -333,31 +335,26 @@ const RouletteGame = ({ menus, dailyRecommendations, includeDaily, weather, loca
                 className="glass rounded-xl shadow-lg p-4 sm:p-6 mb-4 overflow-visible"
               >
                 <div className="text-center">
-                  <div className="text-4xl sm:text-5xl mb-3 sm:mb-4">🎉</div>
+                  <div className="w-16 h-16 mx-auto mb-3 sm:mb-4 flex items-center justify-center bg-gradient-to-br from-green-400 to-blue-500 rounded-full">
+                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
                   <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 mb-2 sm:mb-3">
                     {result.menu_name || result.display_name || result.menu}
                   </h2>
-
-                  {/* ★ 여기 클래스 추가 */}
                   {result.restaurant_name && (
-                    <p
-                      className="result-place-pill mx-auto mb-3 sm:mb-4 text-sm sm:text-base text-slate-700 bg-white/90 inline-flex items-center gap-2 px-4 py-2 rounded-full shadow-sm border border-slate-100"
-                      style={{ overflow: 'visible' }}
-                    >
-                      📍 {result.restaurant_name}
-                      {result.type === '오늘의 메뉴' ? ' · 오늘의 메뉴' : ''}
-                    </p>
+                    <p className="text-sm sm:text-base text-slate-600 mb-2 truncate px-2">{result.restaurant_name}</p>
                   )}
-
                   <div className="flex gap-2 justify-center mb-3 sm:mb-4 flex-wrap">
                     {(result.minutes_away || result.distance?.walking_min) && (
-                      <span className="result-chip text-xs sm:text-sm text-slate-600 bg-slate-100 px-3 py-2 rounded-lg">
-                        🚶 {result.minutes_away || result.distance.walking_min}분
+                      <span className="text-xs sm:text-sm text-slate-600 bg-slate-100 px-2 sm:px-3 py-1 rounded">
+                        {result.minutes_away || result.distance.walking_min}분
                       </span>
                     )}
                     {result.price_range && (
-                      <span className="result-chip text-xs sm:text-sm text-indigo-600 bg-indigo-50 px-3 py-2 rounded-lg">
-                        💰 {result.price_range}
+                      <span className="text-xs sm:text-sm text-indigo-600 bg-indigo-50 px-2 sm:px-3 py-1 rounded">
+                        {result.price_range}
                       </span>
                     )}
                   </div>
@@ -369,19 +366,19 @@ const RouletteGame = ({ menus, dailyRecommendations, includeDaily, weather, loca
                       onClick={saveAsImage}
                       className="glass rounded-xl px-5 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base font-semibold hover:bg-white/90 w-full sm:w-auto bg-green-50 hover:bg-green-100"
                     >
-                      📸 이미지로 저장
+                      이미지로 저장
                     </button>
                     <button
                       onClick={spin}
                       className="glass rounded-xl px-5 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base font-semibold hover:bg-white/90 w-full sm:w-auto"
                     >
-                      🔄 다시 돌리기
+                      다시 돌리기
                     </button>
                     <button
                       onClick={() => onResult(result.menu_name || result.menu)}
                       className="btn-primary rounded-xl px-5 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base font-semibold w-full sm:w-auto"
                     >
-                      ✓ 이 메뉴로 결정!
+                      이 메뉴로 결정
                     </button>
                   </div>
                 </div>

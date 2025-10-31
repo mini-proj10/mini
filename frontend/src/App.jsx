@@ -406,12 +406,10 @@ function App() {
         {/* 메인 콘텐츠 - 시작하기 카드 */}
         <div className="glass rounded-3xl p-6 sm:p-10 md:p-14 shadow-2xl w-full max-w-2xl">
           <div className="mx-auto text-center">
-            <div className="mx-auto mb-4 sm:mb-6 flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500 to-amber-400 shadow-lg">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" className="h-7 w-7 sm:h-9 sm:w-9">
-                <path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7Zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5Z"/>
-              </svg>
+            <div className="mx-auto mb-4 sm:mb-6 flex items-center justify-center">
+              <img src="/images/emoge/yummy.png" alt="yummy" className="h-32 w-32 sm:h-40 sm:w-40 object-contain" />
             </div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-slate-800">🍱 밥뭇나?!</h1>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-slate-800">밥뭇나?!</h1>
             <p className="mt-2 sm:mt-3 text-sm sm:text-base text-slate-600">
               구내식당 메뉴 기반 AI 점심 추천 서비스<br className="hidden sm:block"/>
               날씨에 따라 최적의 메뉴를 추천해드립니다
@@ -466,7 +464,11 @@ function App() {
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="glass rounded-3xl p-6 sm:p-10 md:p-14 shadow-2xl text-center w-full max-w-md">
-          <div className="text-5xl sm:text-6xl md:text-7xl mb-4 sm:mb-6">📍</div>
+          <div className="mx-auto mb-4 sm:mb-6 flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-fuchsia-500 to-amber-400 shadow-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" className="h-7 w-7 sm:h-9 sm:w-9">
+              <path d="M12 2a7 7 0 0 0-7 7c0 5.25 7 13 7 13s7-7.75 7-13a7 7 0 0 0-7-7Zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5Z"/>
+            </svg>
+          </div>
           <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-slate-800 mb-3">
             위치 정보 접근
           </h1>
@@ -492,7 +494,7 @@ function App() {
                 기본 위치(서울)로 진행합니다...
               </p>
               <div className="text-amber-700 text-xs sm:text-sm bg-amber-50 rounded-lg p-3">
-                💡 브라우저 설정에서 위치 권한을 허용하면<br/>
+                브라우저 설정에서 위치 권한을 허용하면<br/>
                 더 정확한 주변 식당을 찾을 수 있습니다
               </div>
             </>

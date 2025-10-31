@@ -119,7 +119,9 @@ const CafeteriaInput = ({ onSubmit, onValidationError, onBack, weather, location
                   <span className="text-base sm:text-xl">
                     {weather.sky_condition === '맑음' ? '☀️' : 
                      weather.sky_condition === '구름많음' ? '⛅' : 
-                     weather.sky_condition === '흐림' ? '☁️' : '🌤️'}
+                     weather.sky_condition === '흐림' ? '☁️' : 
+                     weather.sky_condition === '비' ? '🌧️' : 
+                     weather.sky_condition === '눈' ? '❄️' : '🌤️'}
                   </span>
                 </div>
                 <div className="min-w-0">
@@ -140,8 +142,8 @@ const CafeteriaInput = ({ onSubmit, onValidationError, onBack, weather, location
         <div className="glass rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 shadow-2xl">
           <div className="flex items-center justify-between gap-2 sm:gap-4 border-b border-black/5 pb-3 sm:pb-4">
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-              <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg sm:rounded-xl bg-gradient-to-br from-fuchsia-500 to-amber-400 flex items-center justify-center flex-shrink-0">
-                <span className="text-lg sm:text-xl">🍱</span>
+              <div className="flex items-center justify-center flex-shrink-0">
+                <img src="/images/emoge/menu.png" alt="menu" className="w-8 h-8 sm:w-9 sm:h-9 object-contain" />
               </div>
               <div className="min-w-0">
                 <h2 className="text-base sm:text-xl md:text-2xl font-extrabold text-slate-800 break-keep">오늘의 구내식당 메뉴를 입력해주세요</h2>
@@ -152,7 +154,7 @@ const CafeteriaInput = ({ onSubmit, onValidationError, onBack, weather, location
           <div className="mt-4 sm:mt-6 md:mt-8 grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-3">
             <div className="md:col-span-2 space-y-4 sm:space-y-6">
               <div>
-                <label className="mb-2 block text-xs sm:text-sm font-semibold text-slate-700">🍱 식단표 이미지 업로드</label>
+                <label className="mb-2 block text-xs sm:text-sm font-semibold text-slate-700">식단표 이미지 업로드</label>
                 <div
                   id="dropzone"
                   className={`dropzone rounded-xl sm:rounded-2xl bg-white p-4 sm:p-6 text-center cursor-pointer ${dragOver ? 'dragover' : ''}`}
@@ -206,7 +208,7 @@ const CafeteriaInput = ({ onSubmit, onValidationError, onBack, weather, location
               </div>
 
               <div>
-                <label className="mb-2 block text-xs sm:text-sm font-semibold text-slate-700">✏️ 금일 메뉴 텍스트 입력</label>
+                <label className="mb-2 block text-xs sm:text-sm font-semibold text-slate-700">금일 메뉴 텍스트 입력</label>
                 <textarea
                   value={menuText}
                   onChange={handleTextChange}
@@ -222,7 +224,10 @@ const CafeteriaInput = ({ onSubmit, onValidationError, onBack, weather, location
             <aside className="md:col-span-1 order-first md:order-last">
               <div className="rounded-xl sm:rounded-2xl border border-black/5 bg-white/90 p-3 sm:p-4 shadow">
                 <div className="mb-2 sm:mb-3 flex items-center justify-between">
-                  <h3 className="text-sm sm:text-base font-bold text-slate-700">메뉴 목록</h3>
+                  <div className="flex items-center gap-2">
+                    <img src="/images/emoge/menu.png" alt="menu" className="w-4 h-4 sm:w-5 sm:h-5 object-contain" />
+                    <h3 className="text-sm sm:text-base font-bold text-slate-700">메뉴 목록</h3>
+                  </div>
                   <span className="chip rounded-lg px-2 py-0.5 text-[10px] sm:text-xs text-slate-700">
                     {menuList.length}개
                   </span>
@@ -254,7 +259,7 @@ const CafeteriaInput = ({ onSubmit, onValidationError, onBack, weather, location
               disabled={!menuText.trim() && !imageFile}
               className="btn-primary inline-flex items-center gap-2 rounded-xl px-5 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-[15px] font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed w-full sm:w-auto"
             >
-              <span>메뉴 추천받기</span> <span>🎯</span>
+              <span>메뉴 추천받기</span>
             </button>
           </div>
         </div>
